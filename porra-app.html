@@ -4,15 +4,20 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5" />
 <title>Porra Mundial 2026</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preload" as="style"
+  href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;800&family=Outfit:wght@400;500;600;700&display=swap"
+  onload="this.onload=null;this.rel='stylesheet'">
+<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;800&family=Outfit:wght@400;500;600;700&display=swap"></noscript>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;800&family=Outfit:wght@400;500;600;700&display=swap');
   :root{
     --bg:#0b1020;--bg2:#121a33;--card:#161f3d;--line:#26315a;
     --ink:#eaf0ff;--muted:#8b97c4;--faint:#5663a0;
     --accent:#ff5a36;--accent2:#ffb627;--green:#3ddc97;--gold:#ffd24a;--blue:#4ea8ff;
   }
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
-  body{margin:0;font-family:'Outfit',system-ui,sans-serif;color:var(--ink);
+  body{margin:0;font-family:'Outfit',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,system-ui,sans-serif;color:var(--ink);
     background:radial-gradient(1200px 600px at 80% -10%,#1c2752 0%,transparent 60%),var(--bg);}
   #app{max-width:640px;margin:0 auto;min-height:100vh;padding-bottom:40px;}
   input,select,button{font-family:inherit;}
@@ -274,6 +279,16 @@ const state={
 };
 
 let busyCount=0, toastTimer=null;
+function logout(){
+  state.token=null; state.me=null; state.preds={}; state.submitted={};
+  localStorage.removeItem(LS.token);
+  state.view="welcome"; render();
+}
+function logoutAdmin(){
+  state.adminPin=null;
+  localStorage.removeItem(LS.pin);
+  state.view="welcome"; render();
+}
 function showBusy(txt){ busyCount++; const el=document.getElementById('busy'); const t=document.getElementById('busy-txt'); if(t&&txt) t.textContent=txt; if(el) el.classList.add('on'); }
 function hideBusy(){ busyCount=Math.max(0,busyCount-1); if(busyCount===0){ const el=document.getElementById('busy'); if(el) el.classList.remove('on'); } }
 function toast(msg, isErr){ const el=document.getElementById('toast'); if(!el) return; el.textContent=msg; el.className='on'+(isErr?' err':''); clearTimeout(toastTimer); toastTimer=setTimeout(()=>{ el.className=isErr?'err':''; }, 2200); }
@@ -346,18 +361,35 @@ async function init(){
 
   if(API_URL.startsWith("PEGA_AQUI")){ state.view="config-missing"; render(); return; }
 
-  showBusy("Cargando la porra…");
+  // ── PINTADO INMEDIATO ──
+  // No esperamos al servidor para mostrar algo. Pintamos ya la interfaz
+  // usando el FIXTURE local; los datos dinámicos entran cuando lleguen.
+  if(state.token){
+    // Hay sesión: mostramos la porra al instante (vacía) y un placeholder de carga.
+    state.me = { name:"…", alias:"", paid:true, id:null };
+    state.loadingData = true;
+    state.view = "porra";
+  } else {
+    // Sin sesión: la bienvenida no necesita datos del servidor.
+    state.view = "welcome";
+  }
+  render();
+
+  // ── CARGA EN SEGUNDO PLANO ──
   try{
-    // UNA sola llamada: estado público + datos del usuario (si hay token)
     const r=await api("GET",{action:"boot", token: state.token||""});
     if(r.ok){
       Object.assign(state.server,{rules:r.rules,phases:r.phases,bracket:r.bracket,results:r.results,standings:r.standings});
       if(r.me){ state.me=r.me.user; state.preds=r.me.preds||{}; state.submitted=r.me.submitted||{}; }
-      else { state.me=null; if(state.token){ state.token=null; localStorage.removeItem(LS.token); } }
+      else { state.me=null; if(state.token){ state.token=null; localStorage.removeItem(LS.token); } state.view="welcome"; }
     }
-    state.view = state.me ? "porra" : "welcome";
-  }catch(e){ state.view="api-error"; state.err=String(e); }
-  hideBusy();
+    state.loadingData = false;
+    // Si teníamos sesión asumida pero no hay datos, corregimos la vista
+    if(state.token && !state.me) state.view="welcome";
+  }catch(e){
+    state.loadingData = false;
+    state.view="api-error"; state.err=String(e);
+  }
   render();
 }
 
@@ -467,10 +499,14 @@ function header(){
   ${pend?`<div class="pending">⏳ <b>Pendiente de pago.</b> Puedes rellenar y enviar tu porra, pero no aparecerás en la clasificación hasta que el organizador confirme tu Bizum.</div>`:""}`;
 }
 function tabs(){
-  if(state.view==="welcome") return "";
+  if(state.view==="welcome"||state.view==="register"||state.view==="saved-link"||state.view==="admin-login") return "";
   const t=(v,i,l)=>`<button class="tab ${state.view===v?"on":""}" data-tab="${v}"><span style="font-size:18px">${i}</span><span>${l}</span></button>`;
-  return `<nav class="tabs">${t("porra","📝","Mi porra")}${t("clasif","🏆","Clasificación")}
-    <button class="tab ${state.view==="admin"?"on":""}" data-act="admin-enter"><span style="font-size:18px">⚙️</span><span>Admin</span></button></nav>`;
+  const isAdmin = state.view==="admin";
+  return `<nav class="tabs">
+    ${!isAdmin?t("porra","📝","Mi porra"):""}
+    ${t("clasif","🏆","Clasificación")}
+    <button class="tab ${isAdmin?"on":""}" data-act="admin-enter"><span style="font-size:18px">⚙️</span><span>Admin</span></button>
+  </nav>`;
 }
 function welcome(){
   return `<div class="center-screen">
@@ -512,7 +548,10 @@ function porra(){
       <button class="fillbtn" data-act="fill0">Completar resto a 0-0 ${blanks>0?`(${blanks})`:""}</button>
       <button class="subbtn" data-act="submit">Enviar porra ➜</button></div>`;
   }
-  return phaseSelector(false)+body;
+  const loadingBanner = state.loadingData
+    ? `<div style="display:flex;align-items:center;gap:8px;justify-content:center;padding:8px;margin-bottom:10px;background:var(--card);border:1px solid var(--line);border-radius:10px;font-size:12px;color:var(--muted)"><span class="spinner" style="width:14px;height:14px;border-width:2px"></span> Cargando tus datos…</div>`
+    : "";
+  return loadingBanner+phaseSelector(false)+body;
 }
 
 function clasif(){
@@ -547,7 +586,8 @@ function admin(){
   else if(sec==="resultados") body=adminResultados();
   else if(sec==="reglas") body=adminReglas();
   else if(sec==="usuarios") body=adminUsuarios();
-  return `<div class="adtabs">${st("fases","Fases")}${st("resultados","Resultados")}${st("reglas","Reglas")}${st("usuarios","Usuarios")}</div>${body}`;
+  return `<div class="adtabs">${st("fases","Fases")}${st("resultados","Resultados")}${st("reglas","Reglas")}${st("usuarios","Usuarios")}
+    <button class="stab" onclick="logoutAdmin()" style="color:var(--accent);border-color:rgba(255,90,54,.3)">Salir</button></div>${body}`;
 }
 function adminFases(){
   let h=`<div class="hint">Abre cada fase cuando termine la anterior, fija su <b>fecha límite</b> y, en eliminatorias, asigna los equipos a cada cruce.</div>`;
