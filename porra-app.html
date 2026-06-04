@@ -502,10 +502,17 @@ function tabs(){
   if(state.view==="welcome"||state.view==="register"||state.view==="saved-link"||state.view==="admin-login") return "";
   const t=(v,i,l)=>`<button class="tab ${state.view===v?"on":""}" data-tab="${v}"><span style="font-size:18px">${i}</span><span>${l}</span></button>`;
   const isAdmin = state.view==="admin";
+  if(isAdmin){
+    // Vista admin: Clasificación + Admin (sin "Mi porra")
+    return `<nav class="tabs">
+      ${t("clasif","🏆","Clasificación")}
+      <button class="tab on" data-act="admin-enter"><span style="font-size:18px">⚙️</span><span>Admin</span></button>
+    </nav>`;
+  }
+  // Vista usuario: Mi porra + Clasificación (sin "Admin")
   return `<nav class="tabs">
-    ${!isAdmin?t("porra","📝","Mi porra"):""}
+    ${t("porra","📝","Mi porra")}
     ${t("clasif","🏆","Clasificación")}
-    <button class="tab ${isAdmin?"on":""}" data-act="admin-enter"><span style="font-size:18px">⚙️</span><span>Admin</span></button>
   </nav>`;
 }
 function welcome(){
