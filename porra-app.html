@@ -270,8 +270,12 @@ const ALL_PHASES=[{id:"GROUPS",nombre:"Fase de grupos",fecha:"11 – 27 jun"},..
 /* ----------------------- ESTADO Y API ----------------------- */
 const LS={token:"porra26_token",pin:"porra26_pin"};
 const state={
-  view:"loading",          // loading | welcome | porra | clasif | admin
-  me:null, token:null, adminPin:null,
+  // view = pantalla especial: loading | welcome | register | saved-link | admin-login | config-missing | api-error | app
+  // Cuando view==="app", la pestaña activa la marca state.tab.
+  view:"loading",
+  tab:"porra",             // porra | clasif | admin  (solo válido si view==="app")
+  isAdmin:false,           // rol: true si entró con PIN de organizador
+  me:null, token:null, adminPin:null, savedLink:null, loadingData:false,
   server:{rules:{exact:3,sign:1,miss:0},phases:{},bracket:{},results:{},standings:[],users:[]},
   preds:{}, submitted:{},
   activePhase:"GROUPS", openGroup:"A", adminSection:"fases", adminResPhase:"GROUPS",
@@ -282,10 +286,10 @@ let busyCount=0, toastTimer=null;
 function logout(){
   state.token=null; state.me=null; state.preds={}; state.submitted={};
   localStorage.removeItem(LS.token);
-  state.view="welcome"; render();
+  state.isAdmin=false; state.view="welcome"; render();
 }
 function logoutAdmin(){
-  state.adminPin=null;
+  state.adminPin=null; state.isAdmin=false; state.tab="porra";
   localStorage.removeItem(LS.pin);
   state.view="welcome"; render();
 }
@@ -368,7 +372,7 @@ async function init(){
     // Hay sesión: mostramos la porra al instante (vacía) y un placeholder de carga.
     state.me = { name:"…", alias:"", paid:true, id:null };
     state.loadingData = true;
-    state.view = "porra";
+    state.view = "app"; state.tab = "porra"; state.isAdmin = false;
   } else {
     // Sin sesión: la bienvenida no necesita datos del servidor.
     state.view = "welcome";
@@ -451,7 +455,7 @@ function fillRestZero(){
 async function adminLogin(pin){
   state.adminPin=pin;
   const ok=await refreshAdmin();
-  if(ok){ localStorage.setItem(LS.pin,pin); state.view="admin"; state.modal=null; }
+  if(ok){ localStorage.setItem(LS.pin,pin); state.view="app"; state.tab="admin"; state.isAdmin=true; state.modal=null; }
   else { state.adminPin=null; alert("PIN incorrecto"); }
   render();
 }
@@ -473,12 +477,15 @@ function render(){
   let html = header() + tabs();
   html += `<main>`;
   if(state.view==="welcome") html+=welcome();
-  else if(state.view==="porra") html+=porra();
-  else if(state.view==="clasif") html+=clasif();
-  else if(state.view==="admin") html+=admin();
   else if(state.view==="admin-login") html+=adminLoginView();
   else if(state.view==="register") html+=registerView();
   else if(state.view==="saved-link") html+=savedLinkView();
+  else if(state.view==="app"){
+    if(state.tab==="porra" && !state.isAdmin) html+=porra();
+    else if(state.tab==="clasif") html+=clasif();
+    else if(state.tab==="admin" && state.isAdmin) html+=admin();
+    else { state.tab = state.isAdmin ? "clasif" : "porra"; html += state.isAdmin ? clasif() : porra(); }
+  }
   html += `</main>`;
   html += `<footer>Porra ${esc(FIXTURE.torneo)} · datos guardados en Google Sheets</footer>`;
   app.innerHTML=html;
@@ -499,17 +506,16 @@ function header(){
   ${pend?`<div class="pending">⏳ <b>Pendiente de pago.</b> Puedes rellenar y enviar tu porra, pero no aparecerás en la clasificación hasta que el organizador confirme tu Bizum.</div>`:""}`;
 }
 function tabs(){
-  if(state.view==="welcome"||state.view==="register"||state.view==="saved-link"||state.view==="admin-login") return "";
-  const t=(v,i,l)=>`<button class="tab ${state.view===v?"on":""}" data-tab="${v}"><span style="font-size:18px">${i}</span><span>${l}</span></button>`;
-  const isAdmin = state.view==="admin";
-  if(isAdmin){
-    // Vista admin: Clasificación + Admin (sin "Mi porra")
+  if(state.view!=="app") return "";  // solo hay pestañas en la app principal
+  const t=(v,i,l)=>`<button class="tab ${state.tab===v?"on":""}" data-tab="${v}"><span style="font-size:18px">${i}</span><span>${l}</span></button>`;
+  if(state.isAdmin){
+    // Organizador: Clasificación + Admin (sin "Mi porra")
     return `<nav class="tabs">
       ${t("clasif","🏆","Clasificación")}
-      <button class="tab on" data-act="admin-enter"><span style="font-size:18px">⚙️</span><span>Admin</span></button>
+      ${t("admin","⚙️","Admin")}
     </nav>`;
   }
-  // Vista usuario: Mi porra + Clasificación (sin "Admin")
+  // Participante: Mi porra + Clasificación (sin "Admin")
   return `<nav class="tabs">
     ${t("porra","📝","Mi porra")}
     ${t("clasif","🏆","Clasificación")}
@@ -706,7 +712,7 @@ async function refreshAdmin_withPin(pin){
   hideBusy();
   if(ok){
     localStorage.setItem(LS.pin, pin);
-    state.view = 'admin';
+    state.view = 'app'; state.tab = 'admin'; state.isAdmin = true;
     state.modal = null;
     toast("✅ Bienvenido, organizador");
     render();
@@ -781,7 +787,7 @@ function savedLinkView(){
       id="copy-saved-btn">
       Copiar enlace
     </button>
-    <button onclick="state.view='porra';render();"
+    <button onclick="state.view='app';state.tab='porra';state.isAdmin=false;render();"
       style="width:100%;padding:12px;background:var(--card);color:var(--muted);border:1px solid var(--line);border-radius:12px;font-weight:600;font-size:14px;cursor:pointer">
       Ir a mi porra ➜
     </button>
@@ -890,7 +896,7 @@ function renderModal(){
 
 /* ----------------------- EVENTOS ----------------------- */
 function bind(){
-  document.querySelectorAll("[data-tab]").forEach(b=>b.onclick=()=>{state.view=b.dataset.tab; render();});
+  document.querySelectorAll("[data-tab]").forEach(b=>b.onclick=()=>{state.tab=b.dataset.tab; render();});
   document.querySelectorAll("[data-group]").forEach(b=>b.onclick=()=>{state.openGroup=b.dataset.group; render();});
   document.querySelectorAll("[data-phase]").forEach(b=>b.onclick=()=>{
     let v=b.dataset.phase;
@@ -917,7 +923,7 @@ function bind(){
       // sea síncrono y no sea interceptado por extensiones del navegador
       setTimeout(async()=>{
         if(act==="open-register"){ state.view="register"; render(); }
-        else if(act==="admin-enter"){ if(state.adminPin){ const ok=await refreshAdmin(); if(ok){state.view="admin";render();return;} state.adminPin=null; } state.view="admin-login"; render(); }
+        else if(act==="admin-enter"){ if(state.adminPin){ const ok=await refreshAdmin(); if(ok){state.view="app";state.tab="admin";state.isAdmin=true;render();return;} state.adminPin=null; } state.view="admin-login"; render(); }
         else if(act==="mylink"){ state.modal={type:"mylink"}; render(); }
         else if(act==="fill0"){ fillRestZero(); await savePhase(); }
         else if(act==="submit"){ await submitPhase(); }
