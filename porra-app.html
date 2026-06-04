@@ -283,6 +283,18 @@ const state={
 };
 
 let busyCount=0, toastTimer=null;
+function goRegister(){ state.view="register"; render(); }
+function goMyLink(){ state.modal={type:"mylink"}; render(); }
+async function goFill0(){ fillRestZero(); await savePhase(); }
+async function goSubmit(){ await submitPhase(); }
+async function goAdmin(){
+  if(state.adminPin){
+    const ok=await refreshAdmin();
+    if(ok){ state.view="app"; state.tab="admin"; state.isAdmin=true; render(); return; }
+    state.adminPin=null;
+  }
+  state.view="admin-login"; render();
+}
 function logout(){
   state.token=null; state.me=null; state.preds={}; state.submitted={};
   localStorage.removeItem(LS.token);
@@ -501,7 +513,7 @@ function header(){
       <div class="ball">⚽</div>
     </div>
     ${state.me?`<div class="whoami">👤 ${esc(state.me.alias||state.me.name)}
-      <button class="linkbtn" data-act="mylink">Mi enlace</button></div>`:""}
+      <button class="linkbtn" onclick="goMyLink()">Mi enlace</button></div>`:""}
   </header>
   ${pend?`<div class="pending">⏳ <b>Pendiente de pago.</b> Puedes rellenar y enviar tu porra, pero no aparecerás en la clasificación hasta que el organizador confirme tu Bizum.</div>`:""}`;
 }
@@ -526,8 +538,8 @@ function welcome(){
     <div style="font-size:54px">🏆⚽</div>
     <h1 style="color:var(--ink)">¡Bienvenido a la porra!</h1>
     <p class="hint">Predice los resultados del Mundial 2026 y compite con tus amigos. Date de alta para empezar.</p>
-    <button class="bigbtn" data-act="open-register">Apuntarme ➜</button>
-    <button class="linkbtn" style="background:var(--card);color:var(--blue);border:1px solid var(--line);padding:10px 16px" data-act="admin-enter">Soy el organizador</button>
+    <button class="bigbtn" onclick="goRegister()">Apuntarme ➜</button>
+    <button class="linkbtn" style="background:var(--card);color:var(--blue);border:1px solid var(--line);padding:10px 16px" onclick="goAdmin()">Soy el organizador</button>
   </div>`;
 }
 
@@ -558,8 +570,8 @@ function porra(){
     const list=(pid==="GROUPS"?ms.filter(m=>m.grupo===state.openGroup):ms);
     body+=`<div class="mlist">`+list.map(m=>matchRow(m,state.preds[m.id]||{},false,locked)).join("")+`</div>`;
     if(!locked) body+=`<div class="subbar">
-      <button class="fillbtn" data-act="fill0">Completar resto a 0-0 ${blanks>0?`(${blanks})`:""}</button>
-      <button class="subbtn" data-act="submit">Enviar porra ➜</button></div>`;
+      <button class="fillbtn" onclick="goFill0()">Completar resto a 0-0 ${blanks>0?`(${blanks})`:""}</button>
+      <button class="subbtn" onclick="goSubmit()">Enviar porra ➜</button></div>`;
   }
   const loadingBanner = state.loadingData
     ? `<div style="display:flex;align-items:center;gap:8px;justify-content:center;padding:8px;margin-bottom:10px;background:var(--card);border:1px solid var(--line);border-radius:10px;font-size:12px;color:var(--muted)"><span class="spinner" style="width:14px;height:14px;border-width:2px"></span> Cargando tus datos…</div>`
@@ -922,9 +934,7 @@ function bind(){
       // Separamos el async en setTimeout para que el handler de click
       // sea síncrono y no sea interceptado por extensiones del navegador
       setTimeout(async()=>{
-        if(act==="open-register"){ state.view="register"; render(); }
-        else if(act==="admin-enter"){ if(state.adminPin){ const ok=await refreshAdmin(); if(ok){state.view="app";state.tab="admin";state.isAdmin=true;render();return;} state.adminPin=null; } state.view="admin-login"; render(); }
-        else if(act==="mylink"){ state.modal={type:"mylink"}; render(); }
+        if(act==="mylink"){ state.modal={type:"mylink"}; render(); }
         else if(act==="fill0"){ fillRestZero(); await savePhase(); }
         else if(act==="submit"){ await submitPhase(); }
       }, 0);
