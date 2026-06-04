@@ -155,11 +155,27 @@
   .spinner{width:30px;height:30px;border:3px solid var(--line);border-top-color:var(--accent);
     border-radius:50%;animation:spin .8s linear infinite;}
   @keyframes spin{to{transform:rotate(360deg);}}
+  /* overlay de "ocupado" */
+  #busy{position:fixed;inset:0;background:rgba(4,8,20,.55);backdrop-filter:blur(2px);
+    display:none;align-items:center;justify-content:center;z-index:100;flex-direction:column;gap:14px;}
+  #busy.on{display:flex;}
+  #busy .box{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:24px 30px;
+    display:flex;flex-direction:column;align-items:center;gap:14px;box-shadow:0 20px 60px rgba(0,0,0,.5);}
+  #busy .txt{font-size:14px;font-weight:600;color:var(--ink);}
+  /* toast */
+  #toast{position:fixed;left:50%;bottom:30px;transform:translateX(-50%) translateY(20px);
+    background:var(--green);color:#04241a;font-weight:700;font-size:14px;padding:13px 22px;border-radius:12px;
+    box-shadow:0 8px 24px rgba(61,220,151,.4);opacity:0;pointer-events:none;transition:all .25s ease;z-index:110;
+    max-width:90%;text-align:center;}
+  #toast.on{opacity:1;transform:translateX(-50%) translateY(0);}
+  #toast.err{background:var(--accent);color:#fff;box-shadow:0 8px 24px rgba(255,90,54,.4);}
   footer{text-align:center;font-size:10.5px;color:var(--faint);padding:24px 20px 0;line-height:1.6;}
 </style>
 </head>
 <body>
 <div id="app"></div>
+<div id="busy"><div class="box"><div class="spinner"></div><div class="txt" id="busy-txt">Cargando…</div></div></div>
+<div id="toast"></div>
 
 <script>
 /* ===================================================================
@@ -257,6 +273,11 @@ const state={
   modal:null, busy:false, err:"",
 };
 
+let busyCount=0, toastTimer=null;
+function showBusy(txt){ busyCount++; const el=document.getElementById('busy'); const t=document.getElementById('busy-txt'); if(t&&txt) t.textContent=txt; if(el) el.classList.add('on'); }
+function hideBusy(){ busyCount=Math.max(0,busyCount-1); if(busyCount===0){ const el=document.getElementById('busy'); if(el) el.classList.remove('on'); } }
+function toast(msg, isErr){ const el=document.getElementById('toast'); if(!el) return; el.textContent=msg; el.className='on'+(isErr?' err':''); clearTimeout(toastTimer); toastTimer=setTimeout(()=>{ el.className=isErr?'err':''; }, 2200); }
+
 async function api(method, payload){
   const opts={method, redirect:"follow", headers:{}};
   if(method==="POST"){ opts.headers["Content-Type"]="text/plain;charset=utf-8"; opts.body=JSON.stringify(payload); }
@@ -285,10 +306,8 @@ async function refreshMe(){
   else { state.token=null; localStorage.removeItem(LS.token); state.me=null; }
 }
 async function refreshAdmin(){
-  if(!state.adminPin){ console.log("[refreshAdmin] sin PIN, abortando"); return; }
-  console.log("[refreshAdmin] llamando API...");
+  if(!state.adminPin){ return; }
   const r=await api("POST",{action:"adminState",pin:state.adminPin});
-  console.log("[refreshAdmin] respuesta:", r);
   if(r.ok){ Object.assign(state.server,{rules:r.rules,phases:r.phases,bracket:r.bracket,results:r.results,standings:r.standings,users:r.users}); return true; }
   return false;
 }
@@ -327,17 +346,26 @@ async function init(){
 
   if(API_URL.startsWith("PEGA_AQUI")){ state.view="config-missing"; render(); return; }
 
+  showBusy("Cargando la porra…");
   try{
-    await refreshPublic();
-    await refreshMe();
+    // UNA sola llamada: estado público + datos del usuario (si hay token)
+    const r=await api("GET",{action:"boot", token: state.token||""});
+    if(r.ok){
+      Object.assign(state.server,{rules:r.rules,phases:r.phases,bracket:r.bracket,results:r.results,standings:r.standings});
+      if(r.me){ state.me=r.me.user; state.preds=r.me.preds||{}; state.submitted=r.me.submitted||{}; }
+      else { state.me=null; if(state.token){ state.token=null; localStorage.removeItem(LS.token); } }
+    }
     state.view = state.me ? "porra" : "welcome";
   }catch(e){ state.view="api-error"; state.err=String(e); }
+  hideBusy();
   render();
 }
 
 /* ----------------------- ACCIONES ----------------------- */
 async function doRegister(name,phone,alias){
+  showBusy("Creando tu alta…");
   const r=await api("POST",{action:"register",name,phone,alias});
+  hideBusy();
   if(!r.ok){
     const err=document.getElementById('rg-err');
     if(err){ err.textContent=r.error||'Error al registrar'; err.style.display='block'; }
@@ -345,6 +373,7 @@ async function doRegister(name,phone,alias){
     if(btn){ btn.disabled=false; btn.textContent='Apuntarme ➜'; }
     return;
   }
+  toast("✅ ¡Alta creada!");
   state.token=r.token; localStorage.setItem(LS.token,r.token);
   state.me=r.user; state.preds={}; state.submitted={};
   // Mostrar pantalla de confirmación con enlace personal
@@ -372,12 +401,11 @@ async function submitPhase(){
   }else{
     if(!confirm("Una vez enviada, esta fase quedará BLOQUEADA. ¿Enviar?")) return;
   }
-  state.busy=true; render();
+  showBusy("Enviando tu porra…");
   const preds={}; ms.forEach(m=>{ if(state.preds[m.id]) preds[m.id]=state.preds[m.id]; });
   const r=await api("POST",{action:"submitPhase",token:state.token,phase:state.activePhase,preds});
-  state.busy=false;
-  if(r.ok){ await refreshMe(); }
-  else alert("Error: "+r.error);
+  if(r.ok){ await refreshMe(); hideBusy(); toast("✅ Porra enviada y bloqueada"); }
+  else { hideBusy(); toast("Error: "+r.error, true); }
   render();
 }
 function fillRestZero(){
@@ -389,19 +417,18 @@ function fillRestZero(){
   render();
 }
 async function adminLogin(pin){
-  console.log("[adminLogin] iniciando con PIN longitud:", pin.length);
   state.adminPin=pin;
   const ok=await refreshAdmin();
-  console.log("[adminLogin] refreshAdmin devolvió:", ok);
   if(ok){ localStorage.setItem(LS.pin,pin); state.view="admin"; state.modal=null; }
   else { state.adminPin=null; alert("PIN incorrecto"); }
   render();
 }
 async function adminAct(payload){
-  state.busy=true; render();
+  showBusy("Guardando…");
   const r=await api("POST",Object.assign({pin:state.adminPin},payload));
-  if(r.ok){ await refreshAdmin(); } else alert("Error: "+(r.error||"desconocido"));
-  state.busy=false; render();
+  if(r.ok){ await refreshAdmin(); hideBusy(); toast("✅ Guardado"); }
+  else { hideBusy(); toast("Error: "+(r.error||"desconocido"), true); }
+  render();
 }
 
 /* ----------------------- RENDER ----------------------- */
@@ -627,11 +654,14 @@ function doAdminLoginDirect(){
 }
 async function refreshAdmin_withPin(pin){
   state.adminPin = pin;
+  showBusy("Comprobando PIN…");
   const ok = await refreshAdmin();
+  hideBusy();
   if(ok){
     localStorage.setItem(LS.pin, pin);
     state.view = 'admin';
     state.modal = null;
+    toast("✅ Bienvenido, organizador");
     render();
   } else {
     state.adminPin = null;
