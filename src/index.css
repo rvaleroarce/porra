@@ -1,0 +1,119 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Variables CSS (accesibles fuera de Tailwind, p.ej. en gradientes inline) */
+:root {
+  --bg:      #0b1020;
+  --bg2:     #121a33;
+  --card:    #161f3d;
+  --line:    #26315a;
+  --ink:     #eaf0ff;
+  --muted:   #8b97c4;
+  --faint:   #5663a0;
+  --accent:  #ff5a36;
+  --accent2: #ffb627;
+  --green:   #3ddc97;
+  --gold:    #ffd24a;
+  --blue:    #4ea8ff;
+}
+
+@layer base {
+  html {
+    font-family: 'Inter', sans-serif;
+    background-color: var(--bg);
+    color: var(--ink);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  /* Input numérico de marcador: sin flechas */
+  input[type='number']::-webkit-inner-spin-button,
+  input[type='number']::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+  }
+  input[type='number'] {
+    -moz-appearance: textfield;
+  }
+}
+
+@layer components {
+  /* Tarjeta base */
+  .card {
+    @apply bg-card border border-line rounded-xl p-4;
+  }
+
+  /* Pill de fase */
+  .phase-pill {
+    @apply px-3 py-1.5 rounded-full text-sm font-medium whitespace-nowrap
+           border border-line text-muted transition-colors;
+  }
+  .phase-pill.active {
+    @apply bg-accent border-accent text-white;
+  }
+  .phase-pill.locked {
+    @apply opacity-50 cursor-default;
+  }
+
+  /* Chip de grupo */
+  .group-chip {
+    @apply w-8 h-8 rounded-lg text-sm font-semibold flex items-center justify-center
+           border border-line text-muted transition-colors cursor-pointer;
+  }
+  .group-chip.active {
+    @apply bg-accent2 border-accent2 text-bg font-bold;
+  }
+
+  /* Input de marcador */
+  .score-input {
+    @apply w-10 h-10 text-center text-lg font-bold rounded-lg
+           bg-bg2 border border-line text-ink
+           focus:outline-none focus:border-accent
+           disabled:opacity-40 disabled:cursor-not-allowed;
+  }
+
+  /* Botón primario */
+  .btn-primary {
+    @apply px-5 py-2.5 rounded-xl font-semibold text-sm
+           bg-accent text-white
+           hover:bg-orange-500 active:scale-95
+           disabled:opacity-40 disabled:cursor-not-allowed
+           transition-all;
+  }
+
+  /* Botón secundario */
+  .btn-secondary {
+    @apply px-5 py-2.5 rounded-xl font-semibold text-sm
+           bg-card border border-line text-muted
+           hover:border-accent hover:text-ink
+           disabled:opacity-40 disabled:cursor-not-allowed
+           transition-all;
+  }
+
+  /* Badge de puntuación */
+  .badge-exact { @apply text-xs font-bold text-gold; }
+  .badge-sign  { @apply text-xs font-bold text-success; }
+  .badge-miss  { @apply text-xs text-faint; }
+
+  /* Input de formulario genérico */
+  .field-input {
+    @apply w-full px-4 py-3 rounded-xl bg-bg2 border border-line
+           text-ink placeholder:text-faint
+           focus:outline-none focus:border-accent
+           disabled:opacity-50;
+  }
+
+  /* Tab de navegación */
+  .tab-item {
+    @apply flex-1 py-3 text-sm font-medium text-muted
+           border-t-2 border-transparent
+           transition-colors text-center;
+  }
+  .tab-item.active {
+    @apply text-accent border-t-accent;
+  }
+}
