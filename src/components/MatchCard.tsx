@@ -74,8 +74,8 @@ export default function MatchCard({ matchId, home, away, prediction, result, rul
         <span className="text-sm font-medium truncate">{away}</span>
       </div>
 
-      {/* Badge de puntuación (si hay resultado) */}
-      {score && (
+      {/* Badge de puntuación — solo cuando la fase está bloqueada */}
+      {score && locked && (
         <div className="shrink-0 text-right w-16">
           {score.kind === 'exact' && (
             <span className="badge-exact">+{score.points} ✓✓</span>

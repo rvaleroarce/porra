@@ -140,6 +140,7 @@ export default function Admin() {
                 matchesPlayed={boot.results.filter(r => r.home_score != null).length}
                 paidCount={users.filter(u => u.paid).length}
                 rules={{ exact: boot.porra.exact_pts, sign: boot.porra.sign_pts, miss: boot.porra.miss_pts }}
+                prizeInfo={activePorra.prize_info}
               />
             )}
 

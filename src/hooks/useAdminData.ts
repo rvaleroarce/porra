@@ -10,6 +10,7 @@ export interface AdminPorra {
   exact_pts: number;
   sign_pts: number;
   miss_pts: number;
+  prize_info: string | null;
   torneo_id: string;
 }
 
@@ -39,7 +40,7 @@ export function useAdminData(activePorraId: string | null) {
     // 1. Cargar lista de porras
     const { data: porraList, error: pErr } = await supabase
       .from('porras')
-      .select('id, slug, name, tipo, exact_pts, sign_pts, miss_pts, torneo_id')
+      .select('id, slug, name, tipo, exact_pts, sign_pts, miss_pts, prize_info, torneo_id')
       .order('created_at');
 
     if (pErr) { setError(pErr.message); setLoading(false); return; }

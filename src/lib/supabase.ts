@@ -31,6 +31,7 @@ export interface BootResponse {
     exact_pts: number;
     sign_pts: number;
     miss_pts: number;
+    prize_info: string | null;
   };
   phases: {
     phase_id: string;

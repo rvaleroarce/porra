@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useToken } from '@/hooks/useToken';
 import { useBootData } from '@/hooks/useBootData';
-import { rpcSavePredictions, rpcSubmitPhase } from '@/lib/supabase';
+import { supabase, rpcSavePredictions, rpcSubmitPhase } from '@/lib/supabase';
 import { matchesOfPhase, matchesOfGroup, GROUP_LETTERS, ALL_PHASES } from '@/lib/fixture';
 import type { GroupMatch, BracketMatch, Score } from '@/types';
 import Header from '@/components/Header';
@@ -19,6 +19,14 @@ export default function PorraView() {
   const { token, clearToken } = useToken(slug!);
 
   const { data: boot, loading, error, refresh } = useBootData(slug!, token);
+  const [prizeInfo, setPrizeInfo] = useState<string | null>(null);
+
+  // prize_info no viene en boot (función SQL legada), lo pedimos por separado
+  useEffect(() => {
+    if (!slug) return;
+    supabase.from('porras').select('prize_info').eq('slug', slug).single()
+      .then(({ data }) => setPrizeInfo(data?.prize_info ?? null));
+  }, [slug]);
 
   const [tab, setTab]           = useState<Tab>('porra');
   const [activePhase, setPhase] = useState('GROUPS');
@@ -180,19 +188,28 @@ export default function PorraView() {
 
       {/* Info del usuario */}
       {user && (
-        <div className="px-4 py-2 border-b border-line flex items-center justify-between">
-          <p className="text-xs text-muted">
+        <div className="px-4 py-2 border-b border-line flex items-center justify-between gap-2">
+          <p className="text-xs text-muted truncate">
             {user.alias || user.name}
             {!user.paid && (
               <span className="ml-2 text-accent2 font-medium">· Pago pendiente</span>
             )}
           </p>
-          <button
-            onClick={() => { clearToken(); navigate(`/p/${slug}/register`); }}
-            className="text-xs text-faint hover:text-muted transition-colors"
-          >
-            No soy yo
-          </button>
+          <div className="flex items-center gap-3 shrink-0">
+            <button
+              onClick={() => navigate(`/p/${slug}/ayuda`)}
+              className="text-xs text-faint hover:text-muted transition-colors"
+              title="Instrucciones"
+            >
+              ¿Cómo funciona?
+            </button>
+            <button
+              onClick={() => { clearToken(); navigate(`/p/${slug}/register`); }}
+              className="text-xs text-faint hover:text-muted transition-colors"
+            >
+              No soy yo
+            </button>
+          </div>
         </div>
       )}
 
@@ -206,6 +223,7 @@ export default function PorraView() {
             paidCount={boot.standings.length}
             rules={rules}
             currentUserId={user?.id}
+            prizeInfo={prizeInfo}
           />
         )}
 

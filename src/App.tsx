@@ -5,6 +5,7 @@ import PorraView from '@/routes/PorraView';
 import Register from '@/routes/Register';
 import AdminLogin from '@/routes/AdminLogin';
 import Admin from '@/routes/Admin';
+import Ayuda from '@/routes/Ayuda';
 
 /**
  * Enrutado principal:
@@ -20,6 +21,7 @@ export default function App() {
     <Routes>
       <Route path="/p/:slug" element={<PorraView />} />
       <Route path="/p/:slug/register" element={<Register />} />
+      <Route path="/p/:slug/ayuda" element={<Ayuda />} />
       <Route path="/admin/login" element={<AdminLogin />} />
       <Route path="/admin" element={<Admin />} />
       {/* Raíz: en v1 redirige a /admin/login; con landing propia se cambia */}

@@ -14,13 +14,25 @@ interface Props {
   paidCount: number;
   rules: Rules;
   currentUserId?: string;
+  prizeInfo?: string | null;
 }
 
 const MEDALS = ['🥇', '🥈', '🥉'];
 
-export default function Standings({ standings, matchesPlayed, paidCount, rules, currentUserId }: Props) {
+export default function Standings({ standings, matchesPlayed, paidCount, rules, currentUserId, prizeInfo }: Props) {
   return (
     <div className="flex flex-col gap-4">
+      {/* Premio */}
+      {prizeInfo && (
+        <div className="card border-gold/40 bg-gold/5 flex items-start gap-3">
+          <span className="text-2xl shrink-0">🏆</span>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-gold mb-0.5">Premio</p>
+            <p className="text-sm text-ink leading-relaxed whitespace-pre-line">{prizeInfo}</p>
+          </div>
+        </div>
+      )}
+
       {/* Stats rápidos */}
       <div className="grid grid-cols-3 gap-3">
         {[

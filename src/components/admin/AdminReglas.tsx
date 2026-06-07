@@ -1,19 +1,26 @@
 import { useState } from 'react';
 import { rpcSetRules } from '@/lib/supabase';
+import { supabase } from '@/lib/supabase';
 import type { AdminPorra } from '@/hooks/useAdminData';
 import Spinner from '@/components/Spinner';
 
 export default function AdminReglas({ porra, onUpdated }: { porra: AdminPorra; onUpdated: () => void }) {
-  const [exact, setExact] = useState(porra.exact_pts);
-  const [sign,  setSign]  = useState(porra.sign_pts);
-  const [miss,  setMiss]  = useState(porra.miss_pts);
-  const [busy,  setBusy]  = useState(false);
-  const [saved, setSaved] = useState(false);
+  const [exact,     setExact]     = useState(porra.exact_pts);
+  const [sign,      setSign]      = useState(porra.sign_pts);
+  const [miss,      setMiss]      = useState(porra.miss_pts);
+  const [prizeInfo, setPrizeInfo] = useState(porra.prize_info ?? '');
+  const [busy,      setBusy]      = useState(false);
+  const [saved,     setSaved]     = useState(false);
 
   async function handleSave() {
     setBusy(true);
     setSaved(false);
-    await rpcSetRules({ porraId: porra.id, exact, sign, miss });
+
+    await Promise.all([
+      rpcSetRules({ porraId: porra.id, exact, sign, miss }),
+      supabase.from('porras').update({ prize_info: prizeInfo || null }).eq('id', porra.id),
+    ]);
+
     await onUpdated();
     setBusy(false);
     setSaved(true);
@@ -21,36 +28,59 @@ export default function AdminReglas({ porra, onUpdated }: { porra: AdminPorra; o
   }
 
   return (
-    <div className="card flex flex-col gap-5">
-      <div>
-        <h3 className="font-semibold">Puntos por resultado</h3>
-        <p className="text-xs text-muted mt-0.5">
-          Se aplican a todos los partidos de esta porra.
-        </p>
+    <div className="flex flex-col gap-5">
+
+      {/* Puntos */}
+      <div className="card flex flex-col gap-5">
+        <div>
+          <h3 className="font-semibold">Puntos por resultado</h3>
+          <p className="text-xs text-muted mt-0.5">
+            Se aplican a todos los partidos de esta porra.
+          </p>
+        </div>
+
+        {[
+          { label: '✓✓ Marcador exacto', value: exact, set: setExact, color: 'text-gold' },
+          { label: '✓ Signo correcto (1X2)', value: sign, set: setSign, color: 'text-success' },
+          { label: '✗ Fallo', value: miss, set: setMiss, color: 'text-faint' },
+        ].map(row => (
+          <div key={row.label} className="flex items-center justify-between">
+            <span className={`text-sm font-medium ${row.color}`}>{row.label}</span>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => row.set(Math.max(0, row.value - 1))}
+                className="w-8 h-8 rounded-lg border border-line text-muted
+                           hover:border-accent hover:text-ink transition-colors text-lg"
+              >−</button>
+              <span className="w-6 text-center font-bold">{row.value}</span>
+              <button
+                onClick={() => row.set(row.value + 1)}
+                className="w-8 h-8 rounded-lg border border-line text-muted
+                           hover:border-accent hover:text-ink transition-colors text-lg"
+              >+</button>
+            </div>
+          </div>
+        ))}
       </div>
 
-      {[
-        { label: '✓✓ Marcador exacto', value: exact, set: setExact, color: 'text-gold' },
-        { label: '✓ Signo correcto (1X2)', value: sign, set: setSign, color: 'text-success' },
-        { label: '✗ Fallo', value: miss, set: setMiss, color: 'text-faint' },
-      ].map(row => (
-        <div key={row.label} className="flex items-center justify-between">
-          <span className={`text-sm font-medium ${row.color}`}>{row.label}</span>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => row.set(Math.max(0, row.value - 1))}
-              className="w-8 h-8 rounded-lg border border-line text-muted
-                         hover:border-accent hover:text-ink transition-colors text-lg"
-            >−</button>
-            <span className="w-6 text-center font-bold">{row.value}</span>
-            <button
-              onClick={() => row.set(row.value + 1)}
-              className="w-8 h-8 rounded-lg border border-line text-muted
-                         hover:border-accent hover:text-ink transition-colors text-lg"
-            >+</button>
-          </div>
+      {/* Premio */}
+      <div className="card flex flex-col gap-3">
+        <div>
+          <h3 className="font-semibold">🏆 Premio</h3>
+          <p className="text-xs text-muted mt-0.5">
+            Se muestra en la clasificación y en las instrucciones.
+          </p>
         </div>
-      ))}
+        <textarea
+          rows={3}
+          value={prizeInfo}
+          onChange={e => setPrizeInfo(e.target.value)}
+          placeholder="Ej: El ganador se lleva el bote completo (10 € × participante). En caso de empate se reparte a partes iguales."
+          className="w-full px-4 py-3 rounded-xl bg-bg2 border border-line text-sm
+                     text-ink placeholder:text-faint resize-none
+                     focus:outline-none focus:border-accent"
+        />
+      </div>
 
       <button
         onClick={handleSave}
@@ -59,7 +89,7 @@ export default function AdminReglas({ porra, onUpdated }: { porra: AdminPorra; o
       >
         {busy
           ? <><Spinner size="sm" /> Guardando…</>
-          : saved ? '✓ Guardado' : 'Guardar reglas'}
+          : saved ? '✓ Guardado' : 'Guardar'}
       </button>
     </div>
   );
