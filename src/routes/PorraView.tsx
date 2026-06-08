@@ -33,7 +33,14 @@ export default function PorraView() {
   const [activeGroup, setGroup] = useState('A');
   const [preds, setPreds]       = useState<Record<string, Score>>({});
   const [submitting, setSubmitting] = useState(false);
-  const [toast, setToast]       = useState<ToastState | null>(null);
+  const [toast, setToast]           = useState<ToastState | null>(null);
+
+  // Fechas de envío por fase — guardadas en localStorage para persistir
+  const LS_SUBMIT_KEY = `porra_submits_${slug}`;
+  const [submitDates, setSubmitDates] = useState<Record<string, string>>(() => {
+    try { return JSON.parse(localStorage.getItem(LS_SUBMIT_KEY) ?? '{}'); }
+    catch { return {}; }
+  });
 
   // Redirigir si no hay usuario tras cargar
   useEffect(() => {
@@ -54,6 +61,27 @@ export default function PorraView() {
     }
     setPreds(map);
   }, [boot?.me?.preds]);
+
+  // Recuperar fechas de envío del servidor (para envíos anteriores al feature)
+  useEffect(() => {
+    if (!boot || !token) return;
+    supabase.rpc('get_submission_dates', {
+      p_token:    token,
+      p_porra_id: boot.porra.id,
+    }).then(({ data }) => {
+      if (!data) return;
+      const serverDates: Record<string, string> = {};
+      for (const s of (data as { phase_id: string; submitted_at: string }[])) {
+        serverDates[s.phase_id] = s.submitted_at;
+      }
+      // Servidor es la fuente de verdad; localStorage prevalece si es más reciente
+      setSubmitDates(prev => {
+        const merged = { ...serverDates, ...prev };
+        localStorage.setItem(LS_SUBMIT_KEY, JSON.stringify(merged));
+        return merged;
+      });
+    });
+  }, [boot?.porra.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Helpers ──────────────────────────────────────────────────────────
 
@@ -155,8 +183,34 @@ export default function PorraView() {
       setToast({ msg: (res as { error: string }).error, isError: true });
       return;
     }
+    // Guardar fecha de envío en localStorage
+    const now = new Date().toISOString();
+    const updated = { ...submitDates, [activePhase]: now };
+    setSubmitDates(updated);
+    localStorage.setItem(LS_SUBMIT_KEY, JSON.stringify(updated));
+
     setToast({ msg: '✓ Porra enviada y bloqueada' });
     refresh();
+  }
+
+  async function handleDownloadReceipt() {
+    if (!boot || !user) return;
+    const phaseInfo = ALL_PHASES.find(p => p.id === activePhase);
+    const bracketMap = Object.fromEntries(
+      (boot.bracket ?? []).map(b => [b.match_id, { home: b.home, away: b.away }])
+    );
+    // Carga diferida de jsPDF para no penalizar la carga inicial
+    const { generateReceipt } = await import('@/lib/generateReceipt');
+    generateReceipt({
+      porraName:       boot.porra.name,
+      tournament:      'Mundial 2026',
+      participantName: user.alias || user.name,
+      phaseId:         activePhase,
+      phaseName:       phaseInfo?.name ?? activePhase,
+      submittedAt:     submitDates[activePhase] ? new Date(submitDates[activePhase]) : new Date(),
+      preds,
+      bracket:         bracketMap,
+    });
   }
 
   // ── Render ────────────────────────────────────────────────────────────
@@ -262,12 +316,19 @@ export default function PorraView() {
               );
               const isSubmitted = submitted.has(activePhase);
               const isPast = ph.deadline && new Date() > new Date(ph.deadline);
+              const submitDate = submitDates[activePhase]
+                ? new Date(submitDates[activePhase]).toLocaleString('es-ES', {
+                    day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit'
+                  })
+                : null;
               return (
                 <div className="card flex flex-col gap-2">
                   <div className="flex items-center justify-between text-sm">
                     <span className="font-medium">{phaseInfo[activePhase]?.name}</span>
                     {isSubmitted
-                      ? <span className="text-success font-semibold text-xs">✓ Enviada</span>
+                      ? <span className="text-success font-semibold text-xs">
+                          ✓ Enviada{submitDate ? ` · ${submitDate}` : ''}
+                        </span>
                       : isPast
                         ? <span className="text-accent text-xs">⏰ Cerrada</span>
                         : ph.deadline
@@ -282,9 +343,19 @@ export default function PorraView() {
                       style={{ width: `${allPhaseMatches.length ? (filled / allPhaseMatches.length) * 100 : 0}%` }}
                     />
                   </div>
-                  <p className="text-xs text-muted text-right">
-                    {filled} / {allPhaseMatches.length} partidos
-                  </p>
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs text-muted">
+                      {filled} / {allPhaseMatches.length} partidos
+                    </p>
+                    {isSubmitted && (
+                      <button
+                        onClick={handleDownloadReceipt}
+                        className="text-xs text-info hover:text-ink transition-colors flex items-center gap-1"
+                      >
+                        📄 Descargar resguardo
+                      </button>
+                    )}
+                  </div>
                 </div>
               );
             })()}
