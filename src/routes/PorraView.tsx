@@ -33,6 +33,7 @@ export default function PorraView() {
   const [activeGroup, setGroup] = useState('A');
   const [preds, setPreds]       = useState<Record<string, Score>>({});
   const [submitting, setSubmitting] = useState(false);
+  const [receiptBusy, setReceiptBusy] = useState(false);
   const [toast, setToast]           = useState<ToastState | null>(null);
 
   // Fechas de envío por fase — guardadas en localStorage para persistir
@@ -195,23 +196,32 @@ export default function PorraView() {
   }
 
   async function handleDownloadReceipt() {
-    if (!boot || !user) return;
-    const phaseInfo = ALL_PHASES.find(p => p.id === activePhase);
-    const bracketMap = Object.fromEntries(
-      (boot.bracket ?? []).map(b => [b.match_id, { home: b.home, away: b.away }])
-    );
-    // Carga diferida de jsPDF para no penalizar la carga inicial
-    const { generateReceipt } = await import('@/lib/generateReceipt');
-    generateReceipt({
-      porraName:       boot.porra.name,
-      tournament:      'Mundial 2026',
-      participantName: user.alias || user.name,
-      phaseId:         activePhase,
-      phaseName:       phaseInfo?.name ?? activePhase,
-      submittedAt:     submitDates[activePhase] ? new Date(submitDates[activePhase]) : new Date(),
-      preds,
-      bracket:         bracketMap,
-    });
+    if (!boot || !user || receiptBusy) return;
+    setReceiptBusy(true);
+    try {
+      const phaseInfo = ALL_PHASES.find(p => p.id === activePhase);
+      const bracketMap = Object.fromEntries(
+        (boot.bracket ?? []).map(b => [b.match_id, { home: b.home, away: b.away }])
+      );
+      // Carga diferida de jsPDF para no penalizar la carga inicial
+      const { generateReceipt } = await import('@/lib/generateReceipt');
+      generateReceipt({
+        porraName:       boot.porra.name,
+        tournament:      'Mundial 2026',
+        participantName: user.alias || user.name,
+        phaseId:         activePhase,
+        phaseName:       phaseInfo?.name ?? activePhase,
+        submittedAt:     submitDates[activePhase] ? new Date(submitDates[activePhase]) : new Date(),
+        preds,
+        bracket:         bracketMap,
+      });
+      setToast({ msg: '✓ Resguardo descargado' });
+    } catch (e) {
+      console.error('Error al generar el resguardo:', e);
+      setToast({ msg: 'No se pudo generar el resguardo. Recarga la página e inténtalo de nuevo.', isError: true });
+    } finally {
+      setReceiptBusy(false);
+    }
   }
 
   // ── Render ────────────────────────────────────────────────────────────
@@ -352,9 +362,12 @@ export default function PorraView() {
                     {isSubmitted && (
                       <button
                         onClick={handleDownloadReceipt}
-                        className="text-xs text-info hover:text-ink transition-colors flex items-center gap-1"
+                        disabled={receiptBusy}
+                        className="text-xs text-info hover:text-ink transition-colors flex items-center gap-1 disabled:opacity-50"
                       >
-                        📄 Descargar resguardo
+                        {receiptBusy
+                          ? <><Spinner size="sm" /> Generando…</>
+                          : '📄 Descargar resguardo'}
                       </button>
                     )}
                   </div>
