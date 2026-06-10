@@ -57,6 +57,7 @@ export interface KnockoutPhase {
 export interface PhaseInfo {
   id: PhaseId;
   name: string;
+  shortName: string;
   dateLabel: string;
 }
 

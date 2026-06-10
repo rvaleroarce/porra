@@ -185,9 +185,23 @@ export const FIXTURE: Fixture = {
 };
 
 /** Todas las fases en orden, con metadatos (para selectores de UI). */
+const SHORT_PHASE_NAMES: Record<string, string> = {
+  R32: '1/16',
+  R16: '1/8',
+  QF:  '1/4',
+  SF:  'Semis',
+  TP:  '3º/4º',
+  FN:  'Final',
+};
+
 export const ALL_PHASES: PhaseInfo[] = [
-  { id: 'GROUPS', name: 'Fase de grupos', dateLabel: '11 – 27 jun' },
-  ...knockoutPhases.map((f) => ({ id: f.id, name: f.name, dateLabel: f.dateLabel })),
+  { id: 'GROUPS', name: 'Fase de grupos', shortName: 'Grupos', dateLabel: '11 – 27 jun' },
+  ...knockoutPhases.map((f) => ({
+    id: f.id,
+    name: f.name,
+    shortName: SHORT_PHASE_NAMES[f.id] ?? f.name,
+    dateLabel: f.dateLabel,
+  })),
 ];
 
 /** Letras de grupo en orden ('A'..'L'). */

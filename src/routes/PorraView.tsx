@@ -165,9 +165,11 @@ export default function PorraView() {
   async function handleSubmit() {
     if (!token || !boot || locked) return;
     const empty = allPhaseMatches.length - filled;
-    if (empty > 0) {
-      if (!confirm(`Hay ${empty} partido${empty > 1 ? 's' : ''} sin rellenar. ¿Enviar la porra igualmente?`)) return;
-    }
+    const phaseName = phaseInfo[activePhase]?.name ?? 'esta fase';
+    const emptyMsg = empty > 0
+      ? `\n\nHay ${empty} partido${empty > 1 ? 's' : ''} sin rellenar.`
+      : '';
+    if (!confirm(`¿Enviar la porra de ${phaseName}? Se bloqueará y no podrás cambiar tus pronósticos.${emptyMsg}`)) return;
     setSubmitting(true);
     const allPreds = allPhaseMatches
       .filter(m => preds[m.id]?.home != null && preds[m.id]?.away != null)
@@ -312,7 +314,7 @@ export default function PorraView() {
                       ${activePhase === p.id ? 'active' : ''}
                       ${noPhase ? 'locked' : ''}`}
                   >
-                    {lock && !noPhase ? '🔒 ' : ''}{p.name}
+                    {lock && !noPhase ? '🔒 ' : ''}{p.shortName}
                   </button>
                 );
               })}
@@ -391,7 +393,7 @@ export default function PorraView() {
             )}
 
             {/* Lista de partidos */}
-            <div className="flex flex-col gap-2 pb-20">
+            <div className="flex flex-col gap-2 pb-28">
               {visibleMatches.map(m => {
                 const home = 'group' in m ? m.home : (bracketMap[m.id]?.home ?? m.home);
                 const away = 'group' in m ? m.away : (bracketMap[m.id]?.away ?? m.away);
