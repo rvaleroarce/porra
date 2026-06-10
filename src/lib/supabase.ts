@@ -31,6 +31,7 @@ export interface BootResponse {
     exact_pts: number;
     sign_pts: number;
     miss_pts: number;
+    cuota: number | null;
     prize_info: string | null;
   };
   phases: {
@@ -86,6 +87,7 @@ export interface AdminBootResponse {
     paid: boolean;
     token: string;
     created_at: string;
+    submissions: { phase_id: string; submitted_at: string }[];
   }[];
 }
 
@@ -239,6 +241,7 @@ export async function rpcCreatePorra(params: {
   name: string;
   slug: string;
   tipo: string;
+  cuota: number;
   matches: { match_id: string; phase_id: string }[];
   phases: { phase_id: string; order_num: number }[];
 }) {
@@ -247,6 +250,7 @@ export async function rpcCreatePorra(params: {
     p_name: params.name,
     p_slug: params.slug,
     p_tipo: params.tipo,
+    p_cuota: params.cuota,
     p_matches: params.matches,
     p_phases: params.phases,
   });

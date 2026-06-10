@@ -8,6 +8,7 @@ export default function AdminReglas({ porra, onUpdated }: { porra: AdminPorra; o
   const [exact,     setExact]     = useState(porra.exact_pts);
   const [sign,      setSign]      = useState(porra.sign_pts);
   const [miss,      setMiss]      = useState(porra.miss_pts);
+  const [cuota,     setCuota]     = useState(porra.cuota?.toString() ?? '');
   const [prizeInfo, setPrizeInfo] = useState(porra.prize_info ?? '');
   const [busy,      setBusy]      = useState(false);
   const [saved,     setSaved]     = useState(false);
@@ -18,7 +19,10 @@ export default function AdminReglas({ porra, onUpdated }: { porra: AdminPorra; o
 
     await Promise.all([
       rpcSetRules({ porraId: porra.id, exact, sign, miss }),
-      supabase.from('porras').update({ prize_info: prizeInfo || null }).eq('id', porra.id),
+      supabase.from('porras').update({
+        cuota: cuota.trim() === '' ? null : Number(cuota),
+        prize_info: prizeInfo || null,
+      }).eq('id', porra.id),
     ]);
 
     await onUpdated();
@@ -61,6 +65,32 @@ export default function AdminReglas({ porra, onUpdated }: { porra: AdminPorra; o
             </div>
           </div>
         ))}
+      </div>
+
+      {/* Cuota */}
+      <div className="card flex flex-col gap-3">
+        <div>
+          <h3 className="font-semibold">💶 Cuota por participante</h3>
+          <p className="text-xs text-muted mt-0.5">
+            Pon <span className="font-medium">0</span> para una porra gratis (se ocultan los pagos).
+            Déjalo vacío para mantener el modo de pago sin importe fijo.
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <input
+            type="number"
+            min="0"
+            step="any"
+            inputMode="decimal"
+            placeholder="0 = gratis"
+            value={cuota}
+            onChange={e => setCuota(e.target.value)}
+            className="w-32 px-4 py-3 rounded-xl bg-bg2 border border-line text-sm
+                       text-ink placeholder:text-faint
+                       focus:outline-none focus:border-accent"
+          />
+          <span className="text-sm text-muted">€</span>
+        </div>
       </div>
 
       {/* Premio */}

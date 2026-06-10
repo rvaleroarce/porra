@@ -138,9 +138,10 @@ export default function Admin() {
               <Standings
                 standings={boot.standings}
                 matchesPlayed={boot.results.filter(r => r.home_score != null).length}
-                paidCount={users.filter(u => u.paid).length}
+                paidCount={activePorra.cuota === 0 ? boot.standings.length : users.filter(u => u.paid).length}
                 rules={{ exact: boot.porra.exact_pts, sign: boot.porra.sign_pts, miss: boot.porra.miss_pts }}
                 prizeInfo={activePorra.prize_info}
+                isFree={activePorra.cuota === 0}
               />
             )}
 
@@ -186,7 +187,9 @@ export default function Admin() {
                 {section === 'usuarios' && (
                   <AdminUsuarios
                     users={users}
+                    phases={boot?.phases ?? []}
                     porraSlug={activePorra.slug}
+                    isFree={activePorra.cuota === 0}
                     onUpdated={refresh}
                   />
                 )}

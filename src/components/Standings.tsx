@@ -15,11 +15,12 @@ interface Props {
   rules: Rules;
   currentUserId?: string;
   prizeInfo?: string | null;
+  isFree?: boolean;
 }
 
 const MEDALS = ['🥇', '🥈', '🥉'];
 
-export default function Standings({ standings, matchesPlayed, paidCount, rules, currentUserId, prizeInfo }: Props) {
+export default function Standings({ standings, matchesPlayed, paidCount, rules, currentUserId, prizeInfo, isFree }: Props) {
   return (
     <div className="flex flex-col gap-4">
       {/* Premio */}
@@ -37,7 +38,7 @@ export default function Standings({ standings, matchesPlayed, paidCount, rules, 
       <div className="grid grid-cols-3 gap-3">
         {[
           { label: 'Partidos', value: matchesPlayed },
-          { label: 'Pagados', value: paidCount },
+          { label: isFree ? 'Jugando' : 'Pagados', value: paidCount },
           { label: 'Puntos', value: `${rules.exact}/${rules.sign}/${rules.miss}` },
         ].map(s => (
           <div key={s.label} className="card text-center py-3">
@@ -51,7 +52,7 @@ export default function Standings({ standings, matchesPlayed, paidCount, rules, 
       <div className="card p-0 overflow-hidden">
         {standings.length === 0 ? (
           <p className="text-center text-muted text-sm py-8">
-            Aún no hay participantes pagados.
+            {isFree ? 'Aún no hay participantes en juego.' : 'Aún no hay participantes pagados.'}
           </p>
         ) : (
           <table className="w-full text-sm">

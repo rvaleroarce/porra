@@ -5,19 +5,25 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Paleta del prototipo — mantener exacto
-        bg:      '#0b1020',
-        bg2:     '#121a33',
-        card:    '#161f3d',
-        line:    '#26315a',
-        ink:     '#eaf0ff',
-        muted:   '#8b97c4',
-        faint:   '#5663a0',
-        accent:  '#ff5a36',
-        accent2: '#ffb627',
-        success: '#3ddc97',
-        gold:    '#ffd24a',
-        info:    '#4ea8ff',
+        // Paleta accesible (propuesta B: alto contraste oscuro)
+        bg:      '#080e1c',
+        bg2:     '#0f1628',
+        card:    '#141d38',
+        line:    '#2a3860',
+        ink:     '#f4f8ff',
+        muted:   '#b8c4e8',
+        faint:   '#8090c8',
+        accent:  '#ff6040',
+        accent2: '#ffc030',
+        success: '#44ee9f',
+        gold:    '#ffd84a',
+        info:    '#5fb5ff',
+      },
+      // Texto 1px más grande en los tamaños pequeños (legibilidad / presbicia)
+      fontSize: {
+        xs:   ['0.8125rem', { lineHeight: '1rem' }],     // 13px
+        sm:   ['0.9375rem', { lineHeight: '1.25rem' }],  // 15px
+        base: ['1.0625rem', { lineHeight: '1.5rem' }],   // 17px
       },
       fontFamily: {
         display: ['"Bricolage Grotesque"', 'sans-serif'],

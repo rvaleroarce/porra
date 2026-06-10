@@ -25,6 +25,7 @@ create table porras (
   exact_pts   integer not null default 3,
   sign_pts    integer not null default 1,
   miss_pts    integer not null default 0,
+  cuota       numeric,                        -- null = de pago (sin importe fijado); 0 = gratis; >0 = de pago con importe
   created_at  timestamptz default now()
 );
 
@@ -183,7 +184,8 @@ begin
       'tipo',      v_porra.tipo,
       'exact_pts', v_porra.exact_pts,
       'sign_pts',  v_porra.sign_pts,
-      'miss_pts',  v_porra.miss_pts
+      'miss_pts',  v_porra.miss_pts,
+      'cuota',     v_porra.cuota
     ),
     'phases', (
       select coalesce(json_agg(
@@ -262,14 +264,28 @@ begin
                 = sign(r.home_score::numeric - r.away_score::numeric)
           ) as sign_count
         from users u
-        left join predictions p
+        join predictions p
           on p.user_id = u.id and p.porra_id = v_porra.id
+        join porra_phases pp
+          on pp.porra_id = p.porra_id and pp.phase_id = p.phase_id
         left join results r
           on r.match_id = p.match_id
          and r.torneo_id = v_porra.torneo_id
          and r.home_score is not null
          and r.away_score is not null
-        where u.porra_id = v_porra.id and u.paid = true
+        where u.porra_id = v_porra.id
+          -- Pago: obligatorio salvo en porras gratis (cuota = 0)
+          and (v_porra.cuota = 0 or u.paid = true)
+          -- La fase debe contar para el usuario: enviada, o bloqueada (apagada / fecha vencida)
+          and (
+            pp.open = false
+            or (pp.deadline is not null and current_date > pp.deadline)
+            or exists (
+              select 1 from phase_submissions ps
+              where ps.user_id = u.id and ps.porra_id = p.porra_id
+                and ps.phase_id = p.phase_id
+            )
+          )
         group by u.id, u.alias, u.name
       ) s
     ),
@@ -535,14 +551,22 @@ begin
     'users', (
       select coalesce(json_agg(
         json_build_object(
-          'id',         u.id,
-          'name',       u.name,
-          'alias',      u.alias,
-          'phone',      u.phone,
-          'email',      u.email,
-          'paid',       u.paid,
-          'token',      u.token,
-          'created_at', u.created_at
+          'id',          u.id,
+          'name',        u.name,
+          'alias',       u.alias,
+          'phone',       u.phone,
+          'email',       u.email,
+          'paid',        u.paid,
+          'token',       u.token,
+          'created_at',  u.created_at,
+          'submissions', (
+            select coalesce(json_agg(json_build_object(
+              'phase_id',     ps.phase_id,
+              'submitted_at', ps.submitted_at
+            )), '[]'::json)
+            from phase_submissions ps
+            where ps.user_id = u.id and ps.porra_id = p_porra_id
+          )
         ) order by u.created_at
       ), '[]'::json)
       from users u
@@ -714,7 +738,8 @@ create or replace function create_porra(
   p_slug      text,
   p_tipo      text,
   p_matches   jsonb,
-  p_phases    jsonb
+  p_phases    jsonb,
+  p_cuota     numeric default 0
 )
 returns json
 language plpgsql
@@ -729,8 +754,8 @@ begin
     return json_build_object('ok', false, 'error', 'No autorizado');
   end if;
 
-  insert into porras (torneo_id, slug, name, tipo)
-  values (p_torneo_id, p_slug, p_name, p_tipo)
+  insert into porras (torneo_id, slug, name, tipo, cuota)
+  values (p_torneo_id, p_slug, p_name, p_tipo, p_cuota)
   returning id into v_porra_id;
 
   -- Materializar partidos del ámbito

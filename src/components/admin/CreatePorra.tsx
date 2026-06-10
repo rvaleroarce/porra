@@ -6,6 +6,7 @@ import Spinner from '@/components/Spinner';
 export default function CreatePorra({ onCreated }: { onCreated: (porraId: string) => void }) {
   const [name, setName]   = useState('');
   const [tipo, setTipo]   = useState(PORRA_TIPOS[0].key);
+  const [cuota, setCuota] = useState('');
   const [busy, setBusy]   = useState(false);
   const [error, setError] = useState('');
 
@@ -34,6 +35,7 @@ export default function CreatePorra({ onCreated }: { onCreated: (porraId: string
       p_name:      name.trim(),
       p_slug:      slugify(name.trim()),
       p_tipo:      tipo,
+      p_cuota:     cuota.trim() === '' ? 0 : Number(cuota),
       p_matches:   tipoDef.resolveMatches(),
       p_phases:    tipoDef.resolvePhases(),
     });
@@ -101,6 +103,29 @@ export default function CreatePorra({ onCreated }: { onCreated: (porraId: string
               </div>
             </label>
           ))}
+        </div>
+
+        <div className="flex flex-col gap-1">
+          <label className="text-xs text-muted font-medium uppercase tracking-wide">
+            Cuota por participante (€)
+          </label>
+          <input
+            type="number"
+            min="0"
+            step="any"
+            inputMode="decimal"
+            placeholder="0 = porra gratis"
+            value={cuota}
+            onChange={e => setCuota(e.target.value)}
+            disabled={busy}
+            className="w-full px-4 py-3 rounded-xl bg-bg2 border border-line
+                       text-ink placeholder:text-faint
+                       focus:outline-none focus:border-accent
+                       disabled:opacity-50"
+          />
+          <p className="text-xs text-faint">
+            Déjalo en 0 para una porra sin dinero (se ocultan los pagos).
+          </p>
         </div>
 
         {error && (

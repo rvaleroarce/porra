@@ -93,6 +93,7 @@ export default function PorraView() {
   const rules        = boot
     ? { exact: boot.porra.exact_pts, sign: boot.porra.sign_pts, miss: boot.porra.miss_pts }
     : { exact: 3, sign: 1, miss: 0 };
+  const isFree       = boot?.porra.cuota === 0;
 
   function isLocked(phaseId: string): boolean {
     if (submitted.has(phaseId)) return true;
@@ -245,7 +246,7 @@ export default function PorraView() {
         <div className="px-4 py-2 border-b border-line flex items-center justify-between gap-2">
           <p className="text-xs text-muted truncate">
             {user.alias || user.name}
-            {!user.paid && (
+            {!isFree && !user.paid && (
               <span className="ml-2 text-accent2 font-medium">· Pago pendiente</span>
             )}
           </p>
@@ -278,6 +279,7 @@ export default function PorraView() {
             rules={rules}
             currentUserId={user?.id}
             prizeInfo={prizeInfo}
+            isFree={isFree}
           />
         )}
 
