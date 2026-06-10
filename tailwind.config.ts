@@ -19,12 +19,6 @@ export default {
         gold:    '#ffd84a',
         info:    '#5fb5ff',
       },
-      // Texto 1px más grande en los tamaños pequeños (legibilidad / presbicia)
-      fontSize: {
-        xs:   ['0.8125rem', { lineHeight: '1rem' }],     // 13px
-        sm:   ['0.9375rem', { lineHeight: '1.25rem' }],  // 15px
-        base: ['1.0625rem', { lineHeight: '1.5rem' }],   // 17px
-      },
       fontFamily: {
         display: ['"Bricolage Grotesque"', 'sans-serif'],
         body:    ['"Inter"', 'sans-serif'],
