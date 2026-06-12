@@ -13,6 +13,14 @@ import Toast, { type ToastState } from '@/components/Toast';
 
 type Tab = 'porra' | 'clasificacion';
 
+// El servidor compara `current_date > deadline` en UTC, así que el día de la
+// fecha límite cuenta como abierto entero. Comparamos como strings YYYY-MM-DD
+// para no bloquear en el cliente desde la medianoche UTC (1-2h antes en España).
+function isDeadlinePast(deadline: string | null): boolean {
+  if (!deadline) return false;
+  return new Date().toISOString().slice(0, 10) > deadline;
+}
+
 export default function PorraView() {
   const { slug }       = useParams<{ slug: string }>();
   const navigate       = useNavigate();
@@ -100,7 +108,7 @@ export default function PorraView() {
     if (submitted.has(phaseId)) return true;
     const ph = phaseState[phaseId];
     if (!ph || !ph.open) return true;
-    if (ph.deadline && new Date() > new Date(ph.deadline)) return true;
+    if (isDeadlinePast(ph.deadline)) return true;
     return false;
   }
 
@@ -329,7 +337,7 @@ export default function PorraView() {
                 </div>
               );
               const isSubmitted = submitted.has(activePhase);
-              const isPast = ph.deadline && new Date() > new Date(ph.deadline);
+              const isPast = isDeadlinePast(ph.deadline);
               const submitDate = submitDates[activePhase]
                 ? new Date(submitDates[activePhase]).toLocaleString('es-ES', {
                     day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit'
