@@ -21,8 +21,12 @@ interface Props {
 
 /** Fase activa: la abierta y no vencida (solo hay una a la vez). */
 function getActivePhase(phases: Phase[]): Phase | null {
+  // El servidor compara `current_date > deadline` en UTC, así que el día de
+  // la fecha límite cuenta como abierto entero. Comparamos como strings
+  // YYYY-MM-DD para no cerrar desde la medianoche UTC (1-2h antes en España).
+  const today = new Date().toISOString().slice(0, 10);
   return phases.find(p =>
-    p.open && (!p.deadline || new Date() <= new Date(p.deadline))
+    p.open && (!p.deadline || today <= p.deadline)
   ) ?? null;
 }
 
