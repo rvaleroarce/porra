@@ -68,6 +68,9 @@ export default function Standings({ standings, matchesPlayed, paidCount, rules, 
             <tbody>
               {standings.map((row, i) => {
                 const isCurrent = row.id === currentUserId;
+                const prev = standings[i - 1];
+                const rank = i === 0 ? 1
+                  : (prev.pts === row.pts && prev.exact === row.exact) ? null : i + 1;
                 return (
                   <tr
                     key={row.id}
@@ -75,7 +78,10 @@ export default function Standings({ standings, matchesPlayed, paidCount, rules, 
                       ${isCurrent ? 'bg-accent/10' : 'hover:bg-bg2'}`}
                   >
                     <td className="py-3 px-4 text-center">
-                      {i < 3 ? MEDALS[i] : <span className="text-faint">{i + 1}</span>}
+                      {rank === null
+                        ? <span className="text-faint">—</span>
+                        : rank <= 3 ? MEDALS[rank - 1] : <span className="text-faint">{rank}</span>
+                      }
                     </td>
                     <td className={`py-3 px-4 font-medium ${isCurrent ? 'text-accent' : ''}`}>
                       {row.name}

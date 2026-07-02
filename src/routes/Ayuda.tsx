@@ -48,8 +48,9 @@ export default function Ayuda() {
 
         <Section icon="⚽" title="Rellena tus pronósticos">
           <p>En la pestaña <strong>📝 Mi porra</strong> encontrarás los partidos organizados por fase y grupo.</p>
-          <p className="mt-2">Para cada partido escribe el marcador que crees que será el resultado final
-          (tiempo reglamentario, sin prórrogas ni penaltis).</p>
+          <p className="mt-2">Para cada partido escribe el marcador que crees que será el resultado final.
+          Se cuenta el resultado al final del tiempo reglamentario o de la prórroga si la hay,
+          <strong> nunca el resultado de los penaltis</strong>.</p>
           <p className="mt-2">Pulsa <strong>"Completar a 0-0"</strong> para rellenar de golpe
           los partidos que aún no hayas tocado — sin sobreescribir lo que ya pusiste.</p>
         </Section>
@@ -91,6 +92,7 @@ export default function Ayuda() {
             ? <p className="whitespace-pre-line">{prizeInfo}</p>
             : <p>El ganador (el que más puntos acumule al final del torneo) se lleva el bote. Pregunta al organizador el importe exacto.</p>
           }
+          <p className="mt-2">En caso de empate a puntos se reparte el premio.</p>
         </Section>
 
         <Section icon="📊" title="Clasificación">
