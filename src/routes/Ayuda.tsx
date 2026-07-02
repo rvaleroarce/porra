@@ -90,9 +90,8 @@ export default function Ayuda() {
         <Section icon="🏆" title="Premio">
           {prizeInfo
             ? <p className="whitespace-pre-line">{prizeInfo}</p>
-            : <p>El ganador (el que más puntos acumule al final del torneo) se lleva el bote. Pregunta al organizador el importe exacto.</p>
+            : <p>El ganador (el que más puntos acumule al final del torneo) se lleva el bote. En caso de empate se reparte a partes iguales. Pregunta al organizador el importe exacto.</p>
           }
-          <p className="mt-2">En caso de empate a puntos se reparte el premio.</p>
         </Section>
 
         <Section icon="📊" title="Clasificación">
