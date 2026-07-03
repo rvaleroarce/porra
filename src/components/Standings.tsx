@@ -21,6 +21,15 @@ interface Props {
 const MEDALS = ['🥇', '🥈', '🥉'];
 
 export default function Standings({ standings, matchesPlayed, paidCount, rules, currentUserId, prizeInfo, isFree }: Props) {
+  // Ranking "1-1-3-4-5-6": los empatados en pts comparten puesto (mismo número/medalla),
+  // el siguiente distinto salta al índice real, no al consecutivo.
+  // Ej: 5 empatados en 1º -> 1,1,1,1,1,6
+  const ranks = standings.reduce<number[]>((acc, row, i) => {
+    const rank = i === 0 || standings[i - 1].pts !== row.pts ? i + 1 : acc[i - 1];
+    acc.push(rank);
+    return acc;
+  }, []);
+
   return (
     <div className="flex flex-col gap-4">
       {/* Premio */}
@@ -68,9 +77,7 @@ export default function Standings({ standings, matchesPlayed, paidCount, rules, 
             <tbody>
               {standings.map((row, i) => {
                 const isCurrent = row.id === currentUserId;
-                const prev = standings[i - 1];
-                const rank = i === 0 ? 1
-                  : (prev.pts === row.pts && prev.exact === row.exact) ? null : i + 1;
+                const rank = ranks[i];
                 return (
                   <tr
                     key={row.id}
@@ -78,9 +85,9 @@ export default function Standings({ standings, matchesPlayed, paidCount, rules, 
                       ${isCurrent ? 'bg-accent/10' : 'hover:bg-bg2'}`}
                   >
                     <td className="py-3 px-4 text-center">
-                      {rank === null
-                        ? <span className="text-faint">—</span>
-                        : rank <= 3 ? MEDALS[rank - 1] : <span className="text-faint">{rank}</span>
+                      {rank <= 3
+                        ? MEDALS[rank - 1]
+                        : <span className="text-faint">{rank}</span>
                       }
                     </td>
                     <td className={`py-3 px-4 font-medium ${isCurrent ? 'text-accent' : ''}`}>
