@@ -238,6 +238,32 @@ create policy "admin only" on phase_submissions for all using (auth.role() = 'au
 
 
 -- -----------------------------------------------------------------------
+-- 5b. PRIVILEGIOS
+-- -----------------------------------------------------------------------
+-- RLS decide qué filas se ven, pero no da acceso a la tabla. Sin GRANT,
+-- PostgREST responde "permission denied" sin llegar a mirar las políticas.
+-- No basta con confiar en los privilegios por defecto de Supabase: en los
+-- proyectos nuevos ya no alcanzan.
+
+grant usage on schema public to anon, authenticated;
+
+-- Lectura pública: el fixture y el estado de las porras. `users`,
+-- `predictions` y `phase_submissions` quedan fuera a propósito — el
+-- participante llega a lo suyo por RPC, nunca leyendo la tabla.
+grant select on torneos, teams, tournament_phases, tournament_matches,
+                porras, porra_teams, porra_matches, porra_phases
+  to anon, authenticated;
+
+-- El admin escribe todo; las políticas "admin write" son las que lo acotan.
+grant select, insert, update, delete on all tables in schema public
+  to authenticated;
+
+-- Las RPC de participante son security definer: se ejecutan con permisos
+-- del propietario, así que al anónimo solo le hace falta poder llamarlas.
+grant execute on all functions in schema public to anon, authenticated;
+
+
+-- -----------------------------------------------------------------------
 -- 6. FUNCIONES RPC — PARTICIPANTES
 -- (security definer: se ejecutan con permisos del propietario, bypass RLS)
 -- -----------------------------------------------------------------------
