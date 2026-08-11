@@ -309,6 +309,40 @@ export async function rpcSyncPorraMatches(porraId: string) {
   return data as RpcResult<{ added: number }>;
 }
 
+/**
+ * Dispara la sincronización con el proveedor.
+ *
+ * Va por /api/sync y no directamente contra la API porque hace falta la
+ * clave de servicio, que no puede salir del servidor. Manda la sesión del
+ * admin para que el endpoint sepa que la petición es legítima.
+ */
+export async function triggerSync(): Promise<{ torneos: { torneo: string; partidos: number; resultados: number }[] }> {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) throw new Error('No hay sesión de admin');
+
+  const r = await fetch('/api/sync', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${session.access_token}` },
+  });
+
+  // En `npm run dev` no hay funciones de servidor: Vite sirve el index.html
+  // y la respuesta no es JSON. Merece un mensaje claro en vez de un error raro.
+  const texto = await r.text();
+  let cuerpo: { ok?: boolean; error?: string; torneos?: [] };
+  try {
+    cuerpo = JSON.parse(texto);
+  } catch {
+    throw new Error(
+      r.status === 404 || texto.startsWith('<')
+        ? 'La sincronización solo funciona en el sitio desplegado; en local usa `npm run sync`.'
+        : `Respuesta inesperada del servidor (${r.status})`,
+    );
+  }
+
+  if (!r.ok || !cuerpo.ok) throw new Error(cuerpo.error ?? `Error ${r.status}`);
+  return cuerpo as { torneos: { torneo: string; partidos: number; resultados: number }[] };
+}
+
 /* -----------------------------------------------------------------------
    Lecturas directas del fixture (tablas de lectura pública)
    ----------------------------------------------------------------------- */

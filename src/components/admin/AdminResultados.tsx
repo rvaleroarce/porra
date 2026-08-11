@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import {
-  rpcSetResult, rpcSetMatchTeams,
+  rpcSetResult, rpcSetMatchTeams, triggerSync,
   fetchTournamentMatches, fetchPhases, fetchTeams,
   type TournamentMatch, type TournamentPhase, type Team,
 } from '@/lib/supabase';
@@ -23,6 +23,7 @@ export default function AdminResultados({ torneoId, onUpdated }: Props) {
   const [activeGroup, setActiveGroup] = useState('');
   const [cargando, setCargando] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
+  const [sync, setSync] = useState<{ estado: 'ok' | 'error'; msg: string } | null>(null);
 
   async function recargar() {
     const [ms, ps, ts] = await Promise.all([
@@ -74,6 +75,23 @@ export default function AdminResultados({ torneoId, onUpdated }: Props) {
     setBusy(null);
   }
 
+  /** Trae del proveedor los resultados y cualquier cambio de horario. */
+  async function actualizar() {
+    setBusy('sync');
+    setSync(null);
+    try {
+      const r = await triggerSync();
+      const total = r.torneos.reduce((n, t) => n + t.resultados, 0);
+      await recargar();
+      await onUpdated();
+      setSync({ estado: 'ok', msg: `Actualizado · ${total} partidos con resultado` });
+    } catch (e) {
+      setSync({ estado: 'error', msg: e instanceof Error ? e.message : 'Error desconocido' });
+    } finally {
+      setBusy(null);
+    }
+  }
+
   async function asignarEquipo(m: TournamentMatch, lado: 'home' | 'away', teamId: string) {
     setBusy(m.match_id + lado);
     await rpcSetMatchTeams({
@@ -102,6 +120,26 @@ export default function AdminResultados({ torneoId, onUpdated }: Props) {
 
   return (
     <div className="flex flex-col gap-4">
+      {/* Actualizar desde el proveedor. El cron lo hace solo una vez al día;
+          esto sirve para no esperar, p. ej. al acabar una jornada. */}
+      <div className="card py-2.5 px-3 flex items-center justify-between gap-2">
+        <div className="min-w-0">
+          <p className="text-xs text-muted">Resultados y horarios</p>
+          {sync && (
+            <p className={`text-xs truncate ${sync.estado === 'ok' ? 'text-success' : 'text-accent'}`}>
+              {sync.msg}
+            </p>
+          )}
+        </div>
+        <button
+          onClick={actualizar}
+          disabled={!!busy}
+          className="btn-secondary text-xs px-3 py-1.5 flex items-center gap-1.5 shrink-0"
+        >
+          {busy === 'sync' ? <><Spinner size="sm" /> Actualizando…</> : '↻ Actualizar'}
+        </button>
+      </div>
+
       {/* Selector de fase */}
       <div className="flex gap-2 overflow-x-auto -mx-4 px-4 pb-1">
         {phases.map(p => {
