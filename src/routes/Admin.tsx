@@ -137,7 +137,7 @@ export default function Admin() {
             {tab === 'clasificacion' && boot && (
               <Standings
                 standings={boot.standings}
-                matchesPlayed={boot.results.filter(r => r.home_score != null).length}
+                matchesPlayed={boot.matches.filter(m => m.home_score != null).length}
                 paidCount={activePorra.cuota === 0 ? boot.standings.length : users.filter(u => u.paid).length}
                 rules={{ exact: boot.porra.exact_pts, sign: boot.porra.sign_pts, miss: boot.porra.miss_pts }}
                 prizeInfo={activePorra.prize_info}
@@ -176,8 +176,6 @@ export default function Admin() {
                 {section === 'resultados' && (
                   <AdminResultados
                     torneoId={activePorra.torneo_id}
-                    bracket={boot?.bracket ?? []}
-                    results={boot?.results ?? []}
                     onUpdated={refresh}
                   />
                 )}

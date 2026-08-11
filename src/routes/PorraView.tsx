@@ -1,10 +1,9 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useToken } from '@/hooks/useToken';
 import { useBootData } from '@/hooks/useBootData';
-import { supabase, rpcSavePredictions, rpcSubmitPhase } from '@/lib/supabase';
-import { matchesOfPhase, matchesOfGroup, GROUP_LETTERS, ALL_PHASES } from '@/lib/fixture';
-import type { GroupMatch, BracketMatch, Score } from '@/types';
+import { supabase, rpcSavePredictions, rpcSubmitPhase, type BootMatch } from '@/lib/supabase';
+import type { Score } from '@/types';
 import Header from '@/components/Header';
 import Spinner from '@/components/Spinner';
 import Standings from '@/components/Standings';
@@ -13,12 +12,17 @@ import Toast, { type ToastState } from '@/components/Toast';
 
 type Tab = 'porra' | 'clasificacion';
 
-// El servidor compara `current_date > deadline` en UTC, así que el día de la
-// fecha límite cuenta como abierto entero. Comparamos como strings YYYY-MM-DD
-// para no bloquear en el cliente desde la medianoche UTC (1-2h antes en España).
+// La fecha límite es el instante del primer partido de la fase, así que basta
+// comparar marcas de tiempo: cliente y servidor (`now() >= deadline`) coinciden.
 function isDeadlinePast(deadline: string | null): boolean {
   if (!deadline) return false;
-  return new Date().toISOString().slice(0, 10) > deadline;
+  return Date.now() >= new Date(deadline).getTime();
+}
+
+function formatoFecha(iso: string): string {
+  return new Date(iso).toLocaleString('es-ES', {
+    weekday: 'short', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit',
+  });
 }
 
 export default function PorraView() {
@@ -27,18 +31,10 @@ export default function PorraView() {
   const { token, clearToken } = useToken(slug!);
 
   const { data: boot, loading, error, refresh } = useBootData(slug!, token);
-  const [prizeInfo, setPrizeInfo] = useState<string | null>(null);
-
-  // prize_info no viene en boot (función SQL legada), lo pedimos por separado
-  useEffect(() => {
-    if (!slug) return;
-    supabase.from('porras').select('prize_info').eq('slug', slug).single()
-      .then(({ data }) => setPrizeInfo(data?.prize_info ?? null));
-  }, [slug]);
 
   const [tab, setTab]           = useState<Tab>('porra');
-  const [activePhase, setPhase] = useState('GROUPS');
-  const [activeGroup, setGroup] = useState('A');
+  const [activePhase, setPhase] = useState('');
+  const [activeGroup, setGroup] = useState('');
   const [preds, setPreds]       = useState<Record<string, Score>>({});
   const [submitting, setSubmitting] = useState(false);
   const [receiptBusy, setReceiptBusy] = useState(false);
@@ -92,17 +88,31 @@ export default function PorraView() {
     });
   }, [boot?.porra.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Helpers ──────────────────────────────────────────────────────────
+  // ── Datos derivados de boot ──────────────────────────────────────────
 
-  const phaseInfo    = Object.fromEntries(ALL_PHASES.map(p => [p.id, p]));
-  const phaseState   = Object.fromEntries((boot?.phases ?? []).map(p => [p.phase_id, p]));
-  const resultMap    = Object.fromEntries((boot?.results ?? []).map(r => [r.match_id, r]));
-  const bracketMap   = Object.fromEntries((boot?.bracket ?? []).map(b => [b.match_id, b]));
-  const submitted    = new Set(boot?.me?.submitted ?? []);
-  const rules        = boot
+  const phases     = boot?.phases ?? [];
+  const phaseInfo  = Object.fromEntries(phases.map(p => [p.phase_id, p]));
+  const phaseState = phaseInfo;
+  const submitted  = new Set(boot?.me?.submitted ?? []);
+  const rules      = boot
     ? { exact: boot.porra.exact_pts, sign: boot.porra.sign_pts, miss: boot.porra.miss_pts }
     : { exact: 3, sign: 1, miss: 0 };
-  const isFree       = boot?.porra.cuota === 0;
+  const isFree     = boot?.porra.cuota === 0;
+  const prizeInfo  = boot?.porra.prize_info ?? null;
+
+  /** Los partidos de la porra, agrupados por fase y en orden. */
+  const matchesByPhase = useMemo(() => {
+    const mapa: Record<string, BootMatch[]> = {};
+    for (const m of boot?.matches ?? []) (mapa[m.phase_id] ??= []).push(m);
+    return mapa;
+  }, [boot?.matches]);
+
+  /** Arranca en la primera fase jugable; si no hay ninguna, en la primera. */
+  useEffect(() => {
+    if (activePhase || !phases.length) return;
+    const jugable = phases.find(p => p.open && !isDeadlinePast(p.deadline));
+    setPhase((jugable ?? phases[0]).phase_id);
+  }, [phases, activePhase]);
 
   function isLocked(phaseId: string): boolean {
     if (submitted.has(phaseId)) return true;
@@ -114,19 +124,27 @@ export default function PorraView() {
 
   const locked = isLocked(activePhase);
 
-  /** Partidos visibles según fase/grupo activo */
-  const visibleMatches = activePhase === 'GROUPS'
-    ? matchesOfGroup(activeGroup)
-    : matchesOfPhase(activePhase) as BracketMatch[];
+  /** Todos los partidos de la fase activa (progreso y "completar a 0-0"). */
+  const allPhaseMatches = matchesByPhase[activePhase] ?? [];
 
-  /** Todos los partidos de la fase activa (para calcular progreso y fill-zeros) */
-  const allPhaseMatches = activePhase === 'GROUPS'
-    ? matchesOfPhase('GROUPS') as GroupMatch[]
-    : matchesOfPhase(activePhase) as BracketMatch[];
+  /** Grupos de la fase activa. En liga no hay ninguno y el selector no sale. */
+  const grupos = useMemo(() => {
+    const s = new Set(allPhaseMatches.map(m => m.group_label).filter(Boolean));
+    return [...s].sort() as string[];
+  }, [allPhaseMatches]);
+
+  useEffect(() => {
+    if (grupos.length && !grupos.includes(activeGroup)) setGroup(grupos[0]);
+  }, [grupos, activeGroup]);
+
+  /** Partidos visibles: los del grupo activo si la fase tiene grupos. */
+  const visibleMatches = grupos.length
+    ? allPhaseMatches.filter(m => m.group_label === activeGroup)
+    : allPhaseMatches;
 
   /** Predicciones rellenas en la fase activa */
   const filled = allPhaseMatches.filter(m => {
-    const p = preds[m.id];
+    const p = preds[m.match_id];
     return p?.home != null && p?.away != null;
   }).length;
 
@@ -151,9 +169,9 @@ export default function PorraView() {
   function fillRestZero() {
     const updates: Record<string, Score> = {};
     for (const m of allPhaseMatches) {
-      const p = preds[m.id];
+      const p = preds[m.match_id];
       if (p?.home == null || p?.away == null) {
-        updates[m.id] = { home: 0, away: 0 };
+        updates[m.match_id] = { home: 0, away: 0 };
       }
     }
     if (Object.keys(updates).length === 0) return;
@@ -180,8 +198,12 @@ export default function PorraView() {
     if (!confirm(`¿Enviar la porra de ${phaseName}? Se bloqueará y no podrás cambiar tus pronósticos.${emptyMsg}`)) return;
     setSubmitting(true);
     const allPreds = allPhaseMatches
-      .filter(m => preds[m.id]?.home != null && preds[m.id]?.away != null)
-      .map(m => ({ match_id: m.id, home_score: preds[m.id].home!, away_score: preds[m.id].away! }));
+      .filter(m => preds[m.match_id]?.home != null && preds[m.match_id]?.away != null)
+      .map(m => ({
+        match_id:   m.match_id,
+        home_score: preds[m.match_id].home!,
+        away_score: preds[m.match_id].away!,
+      }));
 
     const res = await rpcSubmitPhase({
       token,
@@ -209,21 +231,16 @@ export default function PorraView() {
     if (!boot || !user || receiptBusy) return;
     setReceiptBusy(true);
     try {
-      const phaseInfo = ALL_PHASES.find(p => p.id === activePhase);
-      const bracketMap = Object.fromEntries(
-        (boot.bracket ?? []).map(b => [b.match_id, { home: b.home, away: b.away }])
-      );
       // Carga diferida de jsPDF para no penalizar la carga inicial
       const { generateReceipt } = await import('@/lib/generateReceipt');
       generateReceipt({
         porraName:       boot.porra.name,
-        tournament:      'Mundial 2026',
+        tournament:      boot.torneo.name,
         participantName: user.alias || user.name,
-        phaseId:         activePhase,
-        phaseName:       phaseInfo?.name ?? activePhase,
+        phaseName:       phaseInfo[activePhase]?.name ?? activePhase,
         submittedAt:     submitDates[activePhase] ? new Date(submitDates[activePhase]) : new Date(),
+        matches:         allPhaseMatches,
         preds,
-        bracket:         bracketMap,
       });
       setToast({ msg: '✓ Resguardo descargado' });
     } catch (e) {
@@ -258,7 +275,7 @@ export default function PorraView() {
 
   return (
     <div className="min-h-screen flex flex-col pb-16">
-      <Header porraName={boot?.porra.name} />
+      <Header porraName={boot?.porra.name} tournamentName={boot?.torneo.name} />
       <Toast toast={toast} onDone={() => setToast(null)} />
 
       {/* Info del usuario */}
@@ -294,7 +311,7 @@ export default function PorraView() {
         {tab === 'clasificacion' && (
           <Standings
             standings={boot.standings}
-            matchesPlayed={boot.results.filter(r => r.home_score != null).length}
+            matchesPlayed={boot.matches.filter(m => m.home_score != null).length}
             paidCount={boot.standings.length}
             rules={rules}
             currentUserId={user?.id}
@@ -307,22 +324,24 @@ export default function PorraView() {
         {tab === 'porra' && (
           <div className="flex flex-col gap-4">
 
-            {/* Selector de fases */}
-            <div className="flex gap-2 flex-wrap">
-              {ALL_PHASES.map(p => {
-                const ph = phaseState[p.id];
-                const lock = isLocked(p.id);
-                const noPhase = !ph || !ph.open;
+            {/* Selector de fases — con 38 jornadas no cabe en pantalla, así que
+                se desliza en horizontal y la activa se centra sola. */}
+            <div className="flex gap-2 overflow-x-auto -mx-4 px-4 pb-1 scrollbar-none">
+              {phases.map(p => {
+                const lock = isLocked(p.phase_id);
+                const noPhase = !p.open;
+                const activa = activePhase === p.phase_id;
                 return (
                   <button
-                    key={p.id}
-                    onClick={() => !noPhase && setPhase(p.id)}
+                    key={p.phase_id}
+                    ref={activa ? (el) => el?.scrollIntoView({ block: 'nearest', inline: 'center' }) : undefined}
+                    onClick={() => !noPhase && setPhase(p.phase_id)}
                     disabled={noPhase}
                     className={`phase-pill shrink-0
-                      ${activePhase === p.id ? 'active' : ''}
+                      ${activa ? 'active' : ''}
                       ${noPhase ? 'locked' : ''}`}
                   >
-                    {lock && !noPhase ? '🔒 ' : ''}{p.shortName}
+                    {lock && !noPhase ? '🔒 ' : ''}{p.short_name}
                   </button>
                 );
               })}
@@ -354,7 +373,7 @@ export default function PorraView() {
                       : isPast
                         ? <span className="text-accent text-xs">⏰ Cerrada</span>
                         : ph.deadline
-                          ? <span className="text-muted text-xs">Límite: {ph.deadline}</span>
+                          ? <span className="text-muted text-xs">Cierra: {formatoFecha(ph.deadline)}</span>
                           : null
                     }
                   </div>
@@ -385,10 +404,10 @@ export default function PorraView() {
               );
             })()}
 
-            {/* Selector de grupo (solo GROUPS) */}
-            {activePhase === 'GROUPS' && (
+            {/* Selector de grupo — solo en fases que tienen grupos */}
+            {grupos.length > 0 && (
               <div className="flex gap-2 flex-wrap">
-                {GROUP_LETTERS.map(g => (
+                {grupos.map(g => (
                   <button
                     key={g}
                     onClick={() => setGroup(g)}
@@ -402,24 +421,28 @@ export default function PorraView() {
 
             {/* Lista de partidos */}
             <div className="flex flex-col gap-2 pb-28">
-              {visibleMatches.map(m => {
-                const home = 'group' in m ? m.home : (bracketMap[m.id]?.home ?? m.home);
-                const away = 'group' in m ? m.away : (bracketMap[m.id]?.away ?? m.away);
-                const result = resultMap[m.id] ?? null;
-                return (
-                  <MatchCard
-                    key={m.id}
-                    matchId={m.id}
-                    home={home}
-                    away={away}
-                    prediction={preds[m.id] ?? { home: null, away: null }}
-                    result={result ? { home: result.home_score, away: result.away_score } : null}
-                    rules={rules}
-                    locked={locked}
-                    onSave={savePred}
-                  />
-                );
-              })}
+              {visibleMatches.map(m => (
+                <MatchCard
+                  key={m.match_id}
+                  matchId={m.match_id}
+                  home={m.home ?? '—'}
+                  away={m.away ?? '—'}
+                  homeCrest={m.home_crest}
+                  awayCrest={m.away_crest}
+                  prediction={preds[m.match_id] ?? { home: null, away: null }}
+                  result={m.home_score != null && m.away_score != null
+                    ? { home: m.home_score, away: m.away_score }
+                    : null}
+                  rules={rules}
+                  locked={locked}
+                  onSave={savePred}
+                />
+              ))}
+              {visibleMatches.length === 0 && (
+                <p className="card text-center py-6 text-muted text-sm">
+                  No hay partidos en esta fase.
+                </p>
+              )}
             </div>
 
           </div>

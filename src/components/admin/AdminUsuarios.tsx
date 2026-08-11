@@ -1,14 +1,15 @@
 import { useState } from 'react';
 import { rpcSetPaid, rpcDeleteParticipant } from '@/lib/supabase';
-import { ALL_PHASES } from '@/lib/fixture';
 import type { AdminUser } from '@/hooks/useAdminData';
 import Spinner from '@/components/Spinner';
 
 interface Phase {
-  phase_id: string;
-  open: boolean;
-  deadline: string | null;
-  order_num: number;
+  phase_id:   string;
+  name:       string;
+  short_name: string;
+  open:       boolean;
+  deadline:   string | null;
+  order_num:  number;
 }
 
 interface Props {
@@ -21,12 +22,9 @@ interface Props {
 
 /** Fase activa: la abierta y no vencida (solo hay una a la vez). */
 function getActivePhase(phases: Phase[]): Phase | null {
-  // El servidor compara `current_date > deadline` en UTC, así que el día de
-  // la fecha límite cuenta como abierto entero. Comparamos como strings
-  // YYYY-MM-DD para no cerrar desde la medianoche UTC (1-2h antes en España).
-  const today = new Date().toISOString().slice(0, 10);
+  const ahora = Date.now();
   return phases.find(p =>
-    p.open && (!p.deadline || today <= p.deadline)
+    p.open && (!p.deadline || ahora < new Date(p.deadline).getTime())
   ) ?? null;
 }
 
@@ -37,9 +35,7 @@ export default function AdminUsuarios({ users, phases, porraSlug, isFree, onUpda
   const pending = users.length - paid;
 
   const activePhase     = getActivePhase(phases);
-  const activePhaseName = activePhase
-    ? ALL_PHASES.find(p => p.id === activePhase.phase_id)?.name ?? activePhase.phase_id
-    : null;
+  const activePhaseName = activePhase?.name ?? activePhase?.phase_id ?? null;
   const sentCount = activePhase
     ? users.filter(u => (u.submissions ?? []).some(s => s.phase_id === activePhase.phase_id)).length
     : 0;

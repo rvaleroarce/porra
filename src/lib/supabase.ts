@@ -21,36 +21,77 @@ export function isRpcError(r: RpcResult<unknown>): r is RpcError {
   return !(r as RpcOk).ok;
 }
 
-/* Boot — respuesta de la función `boot(slug, token?)` */
+/* Un partido tal y como lo devuelve boot(): con el equipo ya resuelto o con
+   la etiqueta provisional del cruce, y con su resultado real si lo tiene. */
+export interface BootMatch {
+  match_id: string;
+  phase_id: string;
+  group_label: string | null;
+  home: string | null;
+  away: string | null;
+  home_crest: string | null;
+  away_crest: string | null;
+  kickoff: string | null;
+  venue: string | null;
+  status: 'scheduled' | 'live' | 'finished' | 'postponed' | 'cancelled';
+  home_score: number | null;
+  away_score: number | null;
+}
+
+/* Filas del torneo que necesita el admin para montar una porra. */
+export interface Torneo {
+  id: string;
+  slug: string;
+  name: string;
+  kind: 'cup' | 'league';
+}
+
+export interface Team {
+  id: string;
+  code: string;
+  name: string;
+  short_name: string | null;
+  crest_url: string | null;
+}
+
+export interface TournamentPhase {
+  phase_id: string;
+  name: string;
+  short_name: string;
+  order_num: number;
+}
+
+/* Boot — respuesta de la función `boot(slug, token?)`
+
+   En v1 esto se completaba en el cliente con fixture.ts. Ahora los partidos
+   llegan ya renderizables: `home` trae el nombre del equipo si se conoce y,
+   si no, la etiqueta del cruce ('1º A', 'Gan. Octavos 1'). */
 export interface BootResponse {
   ok: true;
   porra: {
     id: string;
     name: string;
-    tipo: string;
     exact_pts: number;
     sign_pts: number;
     miss_pts: number;
     cuota: number | null;
     prize_info: string | null;
   };
+  torneo: {
+    id: string;
+    slug: string;
+    name: string;
+    kind: 'cup' | 'league';
+  };
   phases: {
     phase_id: string;
+    name: string;
+    short_name: string;
     open: boolean;
     deadline: string | null;
     order_num: number;
   }[];
-  bracket: {
-    phase_id: string;
-    match_id: string;
-    home: string;
-    away: string;
-  }[];
-  results: {
-    match_id: string;
-    home_score: number | null;
-    away_score: number | null;
-  }[];
+  matches: BootMatch[];
   standings: {
     id: string;
     name: string;
@@ -181,15 +222,15 @@ export async function rpcSetResult(params: {
   return data as RpcResult;
 }
 
-export async function rpcSetBracket(params: {
-  torneoId: string; phaseId: string; matchId: string; home: string; away: string;
+/** Resuelve un cruce de eliminatoria asignándole equipos reales. */
+export async function rpcSetMatchTeams(params: {
+  torneoId: string; matchId: string; homeTeamId: string | null; awayTeamId: string | null;
 }) {
-  const { data, error } = await supabase.rpc('set_bracket', {
+  const { data, error } = await supabase.rpc('set_match_teams', {
     p_torneo_id: params.torneoId,
-    p_phase_id: params.phaseId,
     p_match_id: params.matchId,
-    p_home: params.home,
-    p_away: params.away,
+    p_home_team: params.homeTeamId,
+    p_away_team: params.awayTeamId,
   });
   if (error) throw error;
   return data as RpcResult;
@@ -236,24 +277,86 @@ export async function rpcDeleteParticipant(userId: string) {
   return data as RpcResult;
 }
 
+/**
+ * Crea la porra. El cliente ya no calcula qué partidos entran: manda las
+ * fases y los equipos elegidos, y el servidor resuelve el ámbito contra el
+ * fixture. `teamIds` vacío = la porra abarca el torneo entero.
+ */
 export async function rpcCreatePorra(params: {
   torneoId: string;
   name: string;
   slug: string;
-  tipo: string;
   cuota: number;
-  matches: { match_id: string; phase_id: string }[];
-  phases: { phase_id: string; order_num: number }[];
+  teamIds: string[];
+  phaseIds: string[];
 }) {
   const { data, error } = await supabase.rpc('create_porra', {
     p_torneo_id: params.torneoId,
     p_name: params.name,
     p_slug: params.slug,
-    p_tipo: params.tipo,
     p_cuota: params.cuota,
-    p_matches: params.matches,
-    p_phases: params.phases,
+    p_team_ids: params.teamIds.length ? params.teamIds : null,
+    p_phase_ids: params.phaseIds.length ? params.phaseIds : null,
   });
   if (error) throw error;
   return data as RpcResult<{ porra_id: string }>;
+}
+
+/** Recalcula el ámbito de una porra tras cambiar el fixture. */
+export async function rpcSyncPorraMatches(porraId: string) {
+  const { data, error } = await supabase.rpc('sync_porra_matches', { p_porra_id: porraId });
+  if (error) throw error;
+  return data as RpcResult<{ added: number }>;
+}
+
+/* -----------------------------------------------------------------------
+   Lecturas directas del fixture (tablas de lectura pública)
+   ----------------------------------------------------------------------- */
+
+export async function fetchTorneos(): Promise<Torneo[]> {
+  const { data, error } = await supabase
+    .from('torneos').select('id, slug, name, kind').order('created_at');
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function fetchTeams(torneoId: string): Promise<Team[]> {
+  const { data, error } = await supabase
+    .from('teams').select('id, code, name, short_name, crest_url')
+    .eq('torneo_id', torneoId).order('name');
+  if (error) throw error;
+  return data ?? [];
+}
+
+/** Partido del torneo con sus claves foráneas, para la gestión del admin. */
+export interface TournamentMatch {
+  match_id:     string;
+  phase_id:     string;
+  group_label:  string | null;
+  home_team_id: string | null;
+  away_team_id: string | null;
+  home_label:   string;
+  away_label:   string;
+  kickoff:      string | null;
+  status:       string;
+  home_score:   number | null;
+  away_score:   number | null;
+}
+
+export async function fetchTournamentMatches(torneoId: string): Promise<TournamentMatch[]> {
+  const { data, error } = await supabase
+    .from('tournament_matches')
+    .select('match_id, phase_id, group_label, home_team_id, away_team_id, home_label, away_label, kickoff, status, home_score, away_score')
+    .eq('torneo_id', torneoId)
+    .order('order_num').order('kickoff');
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function fetchPhases(torneoId: string): Promise<TournamentPhase[]> {
+  const { data, error } = await supabase
+    .from('tournament_phases').select('phase_id, name, short_name, order_num')
+    .eq('torneo_id', torneoId).order('order_num');
+  if (error) throw error;
+  return data ?? [];
 }
