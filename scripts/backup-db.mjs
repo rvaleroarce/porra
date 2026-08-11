@@ -3,7 +3,8 @@
 
    `supabase db dump` levanta pg_dump dentro de un contenedor, así que exige
    Docker Desktop. Esto hace lo mismo hablando con Postgres directamente:
-   lee todas las tablas de `public` y escribe dos ficheros en backups/
+   lee todas las tablas de `public` y escribe dos ficheros en la carpeta
+   `porra-backups/`, hermana del repositorio:
 
      · <fecha>-datos.sql   INSERTs en orden de dependencias, restaurable
                            sobre un esquema ya creado (schema.sql)
@@ -13,9 +14,10 @@
 
    Uso:
      npm run backup
-     npm run backup -- "postgresql://postgres:...@db.xxx.supabase.co:5432/postgres"
+     npm run backup -- "postgresql://postgres:...@aws-0-xx.pooler.supabase.com:5432/postgres"
 
    Sin argumento, pide la cadena de conexión por teclado sin mostrarla.
+   La carpeta de salida se puede cambiar con la variable PORRA_BACKUP_DIR.
    ========================================================================= */
 
 import pg from 'pg';
@@ -24,8 +26,13 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const RAIZ    = dirname(dirname(fileURLToPath(import.meta.url)));
-const DESTINO = join(RAIZ, 'backups');
+const RAIZ = dirname(dirname(fileURLToPath(import.meta.url)));
+
+// Los volcados se escriben FUERA del repositorio, en una carpeta hermana.
+// Dentro, un cambio de rama a una donde .gitignore aún no los excluye basta
+// para que git se los lleve a un stash y desaparezcan del disco: ya pasó.
+// Datos personales no deberían vivir dentro de un árbol de git.
+const DESTINO = process.env.PORRA_BACKUP_DIR || join(dirname(RAIZ), 'porra-backups');
 
 /** Pregunta ocultando lo que se teclea (la cadena lleva la contraseña). */
 function preguntarOculto(texto) {
@@ -174,7 +181,7 @@ const main = async () => {
   console.log(`  ${fSql}`);
   console.log(`  ${fJson}`);
   console.log('\nLlevan teléfonos, emails y tokens de participantes reales.');
-  console.log("La carpeta 'backups' está en .gitignore: no los subas al repositorio.");
+  console.log('Están fuera del repositorio a propósito: no los muevas dentro.');
 };
 
 main().catch((e) => {
