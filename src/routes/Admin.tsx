@@ -56,12 +56,20 @@ export default function Admin() {
   if (!session) return null;
 
   // ── Sin porras todavía ───────────────────────────────────────────────
+  // Si además hay error, se enseña: sin esto un fallo al cargar la lista se
+  // disfraza de "todavía no hay ninguna porra".
   if (!creatingPorra && porras.length === 0) {
     return (
       <div className="min-h-screen flex flex-col">
         <Header />
         <SessionBar email={session.user.email!} onSignOut={signOut} />
-        <main className="flex-1 flex flex-col items-center justify-center p-6">
+        <main className="flex-1 flex flex-col items-center justify-center p-6 gap-4">
+          {error && (
+            <div className="w-full max-w-md p-3 rounded-xl bg-accent/10 border border-accent/30
+                            text-sm text-accent">
+              No se pudieron cargar las porras: {error}
+            </div>
+          )}
           <CreatePorra onCreated={handlePorraCreated} />
         </main>
       </div>
