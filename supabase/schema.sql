@@ -245,7 +245,7 @@ create policy "admin only" on phase_submissions for all using (auth.role() = 'au
 -- No basta con confiar en los privilegios por defecto de Supabase: en los
 -- proyectos nuevos ya no alcanzan.
 
-grant usage on schema public to anon, authenticated;
+grant usage on schema public to anon, authenticated, service_role;
 
 -- Lectura pública: el fixture y el estado de las porras. `users`,
 -- `predictions` y `phase_submissions` quedan fuera a propósito — el
@@ -258,9 +258,15 @@ grant select on torneos, teams, tournament_phases, tournament_matches,
 grant select, insert, update, delete on all tables in schema public
   to authenticated;
 
+-- El rol de servicio es el de los procesos de servidor (la sincronización
+-- con la API, el cron de resultados). Se salta las políticas RLS por
+-- diseño, pero los privilegios de tabla los necesita igual.
+grant all on all tables in schema public to service_role;
+
 -- Las RPC de participante son security definer: se ejecutan con permisos
 -- del propietario, así que al anónimo solo le hace falta poder llamarlas.
-grant execute on all functions in schema public to anon, authenticated;
+grant execute on all functions in schema public
+  to anon, authenticated, service_role;
 
 
 -- -----------------------------------------------------------------------
