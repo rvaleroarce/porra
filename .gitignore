@@ -9,6 +9,9 @@ GUIA-INSTALACION.md
 .env.local
 .env.*.local
 
+# Volcados de BD: llevan teléfonos, emails y tokens de participantes reales
+backups/
+
 # Dependencias
 node_modules/
 
