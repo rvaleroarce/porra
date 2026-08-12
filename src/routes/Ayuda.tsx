@@ -1,22 +1,28 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { supabase } from '@/lib/supabase';
+import { supabase, fetchPorraHeader, type PorraHeader } from '@/lib/supabase';
 import Header from '@/components/Header';
 
 export default function Ayuda() {
   const { slug }    = useParams<{ slug: string }>();
   const navigate    = useNavigate();
   const [prizeInfo, setPrizeInfo] = useState<string | null>(null);
+  const [cabecera, setCabecera]   = useState<PorraHeader | null>(null);
 
   useEffect(() => {
     if (!slug) return;
     supabase.from('porras').select('prize_info').eq('slug', slug).single()
       .then(({ data }) => setPrizeInfo(data?.prize_info ?? null));
+    fetchPorraHeader(slug).then(setCabecera);
   }, [slug]);
 
   return (
     <div className="min-h-screen flex flex-col">
-      <Header />
+      <Header
+        porraName={cabecera?.name}
+        tournamentName={cabecera?.torneo?.name}
+        tournamentEmblem={cabecera?.torneo?.emblem_url}
+      />
 
       <main className="flex-1 p-5 max-w-lg mx-auto w-full flex flex-col gap-6 pb-10">
 

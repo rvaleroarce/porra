@@ -275,7 +275,11 @@ export default function PorraView() {
 
   return (
     <div className="min-h-screen flex flex-col pb-16">
-      <Header porraName={boot?.porra.name} tournamentName={boot?.torneo.name} />
+      <Header
+        porraName={boot?.porra.name}
+        tournamentName={boot?.torneo.name}
+        tournamentEmblem={boot?.torneo.emblem_url}
+      />
       <Toast toast={toast} onDone={() => setToast(null)} />
 
       {/* Info del usuario */}

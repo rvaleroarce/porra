@@ -67,7 +67,13 @@ export async function syncTorneo(db, token, torneo, log = () => {}) {
     return r.json();
   };
 
-  /* 1. Equipos ----------------------------------------------------------- */
+  /* 1. La competición: escudo y temporada -------------------------------- */
+  const comp = await api(`/competitions/${torneo.provider_code}`);
+  if (comp.emblem && comp.emblem !== torneo.emblem_url) {
+    await db.from('torneos').update({ emblem_url: comp.emblem }).eq('id', torneo.id);
+  }
+
+  /* 2. Equipos ----------------------------------------------------------- */
   const { teams } = await api(`/competitions/${torneo.provider_code}/teams`);
   const { error: eEq } = await db.from('teams').upsert(
     teams.map((t) => ({
@@ -87,7 +93,7 @@ export async function syncTorneo(db, token, torneo, log = () => {}) {
     .from('teams').select('id, code').eq('torneo_id', torneo.id);
   const idPorCode = Object.fromEntries(guardados.map((t) => [t.code, t.id]));
 
-  /* 2. Partidos y fases -------------------------------------------------- */
+  /* 3. Partidos y fases -------------------------------------------------- */
   const { matches } = await api(`/competitions/${torneo.provider_code}/matches`);
 
   const fases = new Map();
@@ -130,7 +136,7 @@ export async function syncTorneo(db, token, torneo, log = () => {}) {
   const conResultado = partidos.filter((p) => p.home_score !== null).length;
   log(`Partidos: ${partidos.length} (${conResultado} con resultado)`);
 
-  /* 3. Repercutir en las porras ------------------------------------------ */
+  /* 4. Repercutir en las porras ------------------------------------------ */
   const { data: porras } = await db
     .from('porras').select('id, name').eq('torneo_id', torneo.id);
 
