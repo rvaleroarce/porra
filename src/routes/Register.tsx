@@ -1,6 +1,6 @@
-import { useState, type FormEvent } from 'react';
+import { useState, useEffect, type FormEvent } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { rpcRegister, isRpcError } from '@/lib/supabase';
+import { rpcRegister, isRpcError, fetchPorraHeader, type PorraHeader } from '@/lib/supabase';
 import { useToken } from '@/hooks/useToken';
 import Header from '@/components/Header';
 import Spinner from '@/components/Spinner';
@@ -9,6 +9,13 @@ export default function Register() {
   const { slug }   = useParams<{ slug: string }>();
   const navigate   = useNavigate();
   const { saveToken } = useToken(slug!);
+
+  // Esta es la primera pantalla de quien llega por un enlace, así que tiene
+  // que decir a qué porra y a qué competición se está apuntando.
+  const [cabecera, setCabecera] = useState<PorraHeader | null>(null);
+  useEffect(() => {
+    if (slug) fetchPorraHeader(slug).then(setCabecera);
+  }, [slug]);
 
   const [name,  setName]  = useState('');
   const [phone, setPhone] = useState('');
@@ -59,7 +66,11 @@ export default function Register() {
 
   return (
     <div className="min-h-screen flex flex-col">
-      <Header />
+      <Header
+        porraName={cabecera?.name}
+        tournamentName={cabecera?.torneo?.name}
+        tournamentEmblem={cabecera?.torneo?.emblem_url}
+      />
 
       <main className="flex-1 flex flex-col items-center justify-center p-6">
         <div className="w-full max-w-sm card flex flex-col gap-6">

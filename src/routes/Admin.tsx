@@ -5,6 +5,7 @@ import { useAdminData } from '@/hooks/useAdminData';
 import Header from '@/components/Header';
 import Spinner from '@/components/Spinner';
 import CreatePorra from '@/components/admin/CreatePorra';
+import AdminAmbito from '@/components/admin/AdminAmbito';
 import AdminFases from '@/components/admin/AdminFases';
 import AdminResultados from '@/components/admin/AdminResultados';
 import AdminReglas from '@/components/admin/AdminReglas';
@@ -100,7 +101,7 @@ export default function Admin() {
   // ── Panel principal ──────────────────────────────────────────────────
   return (
     <div className="min-h-screen flex flex-col pb-16">
-      <Header />
+      <Header tournamentName={boot?.torneo.name} tournamentEmblem={boot?.torneo.emblem_url} />
       <SessionBar email={session.user.email!} onSignOut={signOut} />
 
       {/* Selector de porra */}
@@ -155,6 +156,8 @@ export default function Admin() {
 
             {tab === 'admin' && (
               <div className="flex flex-col gap-4">
+                {boot && <AdminAmbito boot={boot} />}
+
                 {/* Sub-navegación */}
                 <div className="flex gap-2 flex-wrap">
                   {(['fases', 'resultados', 'reglas', 'usuarios', 'peligroso'] as AdminSection[]).map(s => (

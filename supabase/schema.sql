@@ -28,6 +28,7 @@ create table torneos (
   provider      text,                   -- 'football-data'; null = fixture cargado a mano
   provider_code text,                   -- código de competición del proveedor: 'PD', 'CL'
   season        text,                   -- '2026-27'
+  emblem_url    text,                   -- escudo de la competición (lo trae el proveedor)
   created_at    timestamptz default now()
 );
 
@@ -309,10 +310,22 @@ begin
       'prize_info', v_porra.prize_info
     ),
     'torneo', json_build_object(
-      'id',   v_torneo.id,
-      'slug', v_torneo.slug,
-      'name', v_torneo.name,
-      'kind', v_torneo.kind
+      'id',         v_torneo.id,
+      'slug',       v_torneo.slug,
+      'name',       v_torneo.name,
+      'kind',       v_torneo.kind,
+      'emblem_url', v_torneo.emblem_url
+    ),
+    -- Equipos elegidos: vacío = la porra abarca el torneo entero
+    'teams', (
+      select coalesce(json_agg(
+        json_build_object('id', t.id, 'name', t.name,
+                          'short_name', t.short_name, 'crest_url', t.crest_url)
+        order by coalesce(t.short_name, t.name)
+      ), '[]'::json)
+      from porra_teams pt
+      join teams t on t.id = pt.team_id
+      where pt.porra_id = v_porra.id
     ),
     'phases', (
       select coalesce(json_agg(

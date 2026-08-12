@@ -82,7 +82,10 @@ export interface BootResponse {
     slug: string;
     name: string;
     kind: 'cup' | 'league';
+    emblem_url: string | null;
   };
+  /** Equipos elegidos al crear la porra. Vacío = abarca el torneo entero. */
+  teams: Team[];
   phases: {
     phase_id: string;
     name: string;
@@ -347,6 +350,27 @@ export async function triggerSync(): Promise<{ torneos: { torneo: string; partid
    Lecturas directas del fixture (tablas de lectura pública)
    ----------------------------------------------------------------------- */
 
+/**
+ * Datos mínimos para la cabecera de una porra: su nombre y el de la
+ * competición. Lo usan Registro y Ayuda, que necesitan el rótulo pero no
+ * los cientos de partidos que devuelve boot().
+ */
+export interface PorraHeader {
+  name: string;
+  torneo: { name: string; emblem_url: string | null } | null;
+}
+
+export async function fetchPorraHeader(slug: string): Promise<PorraHeader | null> {
+  const { data, error } = await supabase
+    .from('porras')
+    .select('name, prize_info, torneos(name, emblem_url)')
+    .eq('slug', slug)
+    .single();
+  if (error || !data) return null;
+  const t = data.torneos as unknown as { name: string; emblem_url: string | null } | null;
+  return { name: data.name, torneo: t };
+}
+
 export async function fetchTorneos(): Promise<Torneo[]> {
   const { data, error } = await supabase
     .from('torneos').select('id, slug, name, kind').order('created_at');
@@ -357,7 +381,7 @@ export async function fetchTorneos(): Promise<Torneo[]> {
 export async function fetchTeams(torneoId: string): Promise<Team[]> {
   const { data, error } = await supabase
     .from('teams').select('id, code, name, short_name, crest_url')
-    .eq('torneo_id', torneoId).order('name');
+    .eq('torneo_id', torneoId).order('short_name').order('name');
   if (error) throw error;
   return data ?? [];
 }
