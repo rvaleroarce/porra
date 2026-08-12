@@ -8,14 +8,21 @@ import Spinner from '@/components/Spinner';
 
 interface Props {
   torneoId: string;
+  /** Partidos que entran en la porra activa, para no enseñar el torneo entero. */
+  porraMatchIds: string[];
   onUpdated: () => void;
 }
 
 /**
  * Resultados del TORNEO, no de una porra: el marcador se mete una vez y
  * recalcula todas las porras que incluyan ese partido.
+ *
+ * Aun así se enseñan por defecto solo los partidos de la porra activa. Con
+ * el cron trayendo los marcadores, aquí se viene a corregir algo puntual, y
+ * ver los 380 del torneo es ruido. El enlace "ver todos" queda para el caso
+ * de varias porras con equipos distintos.
  */
-export default function AdminResultados({ torneoId, onUpdated }: Props) {
+export default function AdminResultados({ torneoId, porraMatchIds, onUpdated }: Props) {
   const [matches, setMatches] = useState<TournamentMatch[]>([]);
   const [phases, setPhases]   = useState<TournamentPhase[]>([]);
   const [teams, setTeams]     = useState<Team[]>([]);
@@ -24,6 +31,7 @@ export default function AdminResultados({ torneoId, onUpdated }: Props) {
   const [cargando, setCargando] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
   const [sync, setSync] = useState<{ estado: 'ok' | 'error'; msg: string } | null>(null);
+  const [verTodos, setVerTodos] = useState(false);
 
   async function recargar() {
     const [ms, ps, ts] = await Promise.all([
@@ -37,12 +45,7 @@ export default function AdminResultados({ torneoId, onUpdated }: Props) {
 
   useEffect(() => {
     setCargando(true);
-    recargar()
-      .then(ps => {
-        // Arranca en la fase con partidos jugándose o la primera sin resultados
-        setActivePhase(prev => prev || ps[0]?.phase_id || '');
-      })
-      .finally(() => setCargando(false));
+    recargar().finally(() => setCargando(false));
   }, [torneoId]);
 
   const nombrePorId = useMemo(
@@ -50,7 +53,28 @@ export default function AdminResultados({ torneoId, onUpdated }: Props) {
     [teams],
   );
 
-  const dePhase = matches.filter(m => m.phase_id === activePhase);
+  /** Partidos del ámbito: los de la porra, o el torneo entero si se pide. */
+  const delAmbito = useMemo(() => {
+    if (verTodos) return matches;
+    const enPorra = new Set(porraMatchIds);
+    return matches.filter(m => enPorra.has(m.match_id));
+  }, [matches, porraMatchIds, verTodos]);
+
+  /** Solo las fases que tienen algún partido visible. */
+  const fasesVisibles = useMemo(() => {
+    const conPartidos = new Set(delAmbito.map(m => m.phase_id));
+    return phases.filter(p => conPartidos.has(p.phase_id));
+  }, [phases, delAmbito]);
+
+  // Al cambiar el ámbito, la fase activa puede quedarse fuera
+  useEffect(() => {
+    if (!fasesVisibles.length) return;
+    if (!fasesVisibles.some(p => p.phase_id === activePhase)) {
+      setActivePhase(fasesVisibles[0].phase_id);
+    }
+  }, [fasesVisibles, activePhase]);
+
+  const dePhase = delAmbito.filter(m => m.phase_id === activePhase);
 
   const grupos = useMemo(() => {
     const s = new Set(dePhase.map(m => m.group_label).filter(Boolean));
@@ -142,7 +166,7 @@ export default function AdminResultados({ torneoId, onUpdated }: Props) {
 
       {/* Selector de fase */}
       <div className="flex gap-2 overflow-x-auto -mx-4 px-4 pb-1">
-        {phases.map(p => {
+        {fasesVisibles.map(p => {
           const activa = activePhase === p.phase_id;
           return (
             <button
@@ -173,6 +197,17 @@ export default function AdminResultados({ torneoId, onUpdated }: Props) {
 
       <p className="text-xs text-muted text-center">
         {conResultado} de {dePhase.length} partidos con resultado
+        {porraMatchIds.length > 0 && matches.length > porraMatchIds.length && (
+          <>
+            {' · '}
+            <button
+              onClick={() => setVerTodos(v => !v)}
+              className="text-info hover:text-ink transition-colors underline"
+            >
+              {verTodos ? 'solo los de la porra' : 'ver todos los del torneo'}
+            </button>
+          </>
+        )}
       </p>
 
       <div className="flex flex-col gap-2">

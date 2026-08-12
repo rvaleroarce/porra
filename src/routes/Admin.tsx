@@ -187,6 +187,7 @@ export default function Admin() {
                 {section === 'resultados' && (
                   <AdminResultados
                     torneoId={activePorra.torneo_id}
+                    porraMatchIds={boot?.matches.map(m => m.match_id) ?? []}
                     onUpdated={refresh}
                   />
                 )}
