@@ -1,17 +1,23 @@
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { matchesOfPhase, matchesOfGroup, GROUP_LETTERS } from './fixture';
 import type { Score } from '@/types';
+
+/** Un partido ya resuelto: los nombres llegan hechos desde boot(). */
+export interface ReceiptMatch {
+  match_id:    string;
+  home:        string | null;
+  away:        string | null;
+  group_label: string | null;
+}
 
 export interface ReceiptData {
   porraName:       string;
   tournament:      string;
   participantName: string;
-  phaseId:         string;
   phaseName:       string;
   submittedAt:     Date;
+  matches:         ReceiptMatch[];
   preds:           Record<string, Score>;
-  bracket:         Record<string, { home: string; away: string }>;
 }
 
 const NAVY  = [22,  31,  61]  as [number, number, number]; // --card
@@ -25,7 +31,7 @@ function formatDate(d: Date): string {
 }
 
 export function generateReceipt(data: ReceiptData): void {
-  const { porraName, tournament, participantName, phaseId, phaseName, submittedAt, preds, bracket } = data;
+  const { porraName, tournament, participantName, phaseName, submittedAt, matches, preds } = data;
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
 
   // ── Cabecera ───────────────────────────────────────────────────────────
@@ -71,75 +77,64 @@ export function generateReceipt(data: ReceiptData): void {
   doc.line(20, y, 190, y);
   y += 6;
 
-  // ── Tabla de predicciones ──────────────────────────────────────────────
+  // ── Tabla(s) de predicciones ───────────────────────────────────────────
+  // Si la fase tiene grupos se saca una tabla por grupo; si no —una jornada
+  // de liga, una eliminatoria— una sola tabla corrida.
   let totalFilled = 0;
-  let totalMatches = 0;
 
-  if (phaseId === 'GROUPS') {
-    // Una tabla por grupo
-    for (const g of GROUP_LETTERS) {
-      const matches = matchesOfGroup(g);
-      const rows = matches.map(m => {
-        totalMatches++;
-        const p = preds[m.id];
-        const filled = p?.home != null && p?.away != null;
-        if (filled) totalFilled++;
-        return [
-          m.id,
-          m.home,
-          m.away,
-          filled ? `${p.home} – ${p.away}` : '—',
-        ];
-      });
+  const fila = (m: ReceiptMatch) => {
+    const p = preds[m.match_id];
+    const relleno = p?.home != null && p?.away != null;
+    if (relleno) totalFilled++;
+    return [
+      m.match_id,
+      m.home ?? '—',
+      m.away ?? '—',
+      relleno ? `${p.home} – ${p.away}` : '—',
+    ];
+  };
 
+  const estilo = (primeraColumna: number, ultima: number) => ({
+    styles:       { fontSize: 9, cellPadding: 2.5 },
+    headStyles:   { fillColor: NAVY, textColor: 255, fontStyle: 'bold' as const },
+    columnStyles: {
+      0: { cellWidth: primeraColumna },
+      3: { cellWidth: ultima, halign: 'center' as const, fontStyle: 'bold' as const },
+    },
+    alternateRowStyles: { fillColor: [245, 247, 255] as [number, number, number] },
+    margin: { left: 20, right: 20 },
+  });
+
+  const finalY = () =>
+    (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 4;
+
+  const grupos = [...new Set(matches.map(m => m.group_label).filter(Boolean))].sort() as string[];
+
+  if (grupos.length) {
+    for (const g of grupos) {
       autoTable(doc, {
         startY: y,
         head: [[`Grupo ${g}`, 'Local', 'Visitante', 'Pronóstico']],
-        body: rows,
-        styles:       { fontSize: 8.5, cellPadding: 2 },
-        headStyles:   { fillColor: NAVY, textColor: 255, fontStyle: 'bold' },
-        columnStyles: { 0: { cellWidth: 14 }, 3: { cellWidth: 24, halign: 'center', fontStyle: 'bold' } },
-        alternateRowStyles: { fillColor: [245, 247, 255] },
-        margin: { left: 20, right: 20 },
+        body: matches.filter(m => m.group_label === g).map(fila),
+        ...estilo(20, 24),
       });
-      y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 4;
+      y = finalY();
     }
   } else {
-    const matches = matchesOfPhase(phaseId);
-    const rows = matches.map(m => {
-      totalMatches++;
-      const b   = bracket[m.id];
-      const home = b?.home || m.home;
-      const away = b?.away || m.away;
-      const p   = preds[m.id];
-      const filled = p?.home != null && p?.away != null;
-      if (filled) totalFilled++;
-      return [
-        m.id,
-        home,
-        away,
-        filled ? `${p.home} – ${p.away}` : '—',
-      ];
-    });
-
     autoTable(doc, {
       startY: y,
       head: [['Partido', 'Local', 'Visitante', 'Pronóstico']],
-      body: rows,
-      styles:       { fontSize: 9, cellPadding: 2.5 },
-      headStyles:   { fillColor: NAVY, textColor: 255, fontStyle: 'bold' },
-      columnStyles: { 0: { cellWidth: 20 }, 3: { cellWidth: 28, halign: 'center', fontStyle: 'bold' } },
-      alternateRowStyles: { fillColor: [245, 247, 255] },
-      margin: { left: 20, right: 20 },
+      body: matches.map(fila),
+      ...estilo(24, 28),
     });
-    y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 4;
+    y = finalY();
   }
 
   // ── Resumen final ──────────────────────────────────────────────────────
   doc.setFontSize(9);
   doc.setFont('helvetica', 'italic');
   doc.setTextColor(...MUTED);
-  doc.text(`${totalFilled} de ${totalMatches} partidos rellenados.`, 20, y + 4);
+  doc.text(`${totalFilled} de ${matches.length} partidos rellenados.`, 20, y + 4);
 
   // ── Pie de página en todas las páginas ────────────────────────────────
   const pages = doc.getNumberOfPages();
@@ -149,7 +144,7 @@ export function generateReceipt(data: ReceiptData): void {
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(...MUTED);
     doc.text(
-      `Porra Mundial 2026 · ${porraName} · Página ${i} de ${pages}`,
+      `${tournament} · ${porraName} · Página ${i} de ${pages}`,
       105, 290, { align: 'center' }
     );
   }

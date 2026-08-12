@@ -56,12 +56,20 @@ export default function Admin() {
   if (!session) return null;
 
   // ── Sin porras todavía ───────────────────────────────────────────────
+  // Si además hay error, se enseña: sin esto un fallo al cargar la lista se
+  // disfraza de "todavía no hay ninguna porra".
   if (!creatingPorra && porras.length === 0) {
     return (
       <div className="min-h-screen flex flex-col">
         <Header />
         <SessionBar email={session.user.email!} onSignOut={signOut} />
-        <main className="flex-1 flex flex-col items-center justify-center p-6">
+        <main className="flex-1 flex flex-col items-center justify-center p-6 gap-4">
+          {error && (
+            <div className="w-full max-w-md p-3 rounded-xl bg-accent/10 border border-accent/30
+                            text-sm text-accent">
+              No se pudieron cargar las porras: {error}
+            </div>
+          )}
           <CreatePorra onCreated={handlePorraCreated} />
         </main>
       </div>
@@ -137,7 +145,7 @@ export default function Admin() {
             {tab === 'clasificacion' && boot && (
               <Standings
                 standings={boot.standings}
-                matchesPlayed={boot.results.filter(r => r.home_score != null).length}
+                matchesPlayed={boot.matches.filter(m => m.home_score != null).length}
                 paidCount={activePorra.cuota === 0 ? boot.standings.length : users.filter(u => u.paid).length}
                 rules={{ exact: boot.porra.exact_pts, sign: boot.porra.sign_pts, miss: boot.porra.miss_pts }}
                 prizeInfo={activePorra.prize_info}
@@ -176,8 +184,6 @@ export default function Admin() {
                 {section === 'resultados' && (
                   <AdminResultados
                     torneoId={activePorra.torneo_id}
-                    bracket={boot?.bracket ?? []}
-                    results={boot?.results ?? []}
                     onUpdated={refresh}
                   />
                 )}

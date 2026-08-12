@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { flag } from '@/lib/fixture';
 import { scoreMatchSafe } from '@/lib/scoring';
 import type { Rules, Score } from '@/types';
 
@@ -7,6 +6,8 @@ interface Props {
   matchId: string;
   home: string;
   away: string;
+  homeCrest?: string | null;
+  awayCrest?: string | null;
   prediction: Score;
   result?: Score | null;
   rules: Rules;
@@ -14,7 +15,15 @@ interface Props {
   onSave: (matchId: string, home: number | null, away: number | null) => void;
 }
 
-export default function MatchCard({ matchId, home, away, prediction, result, rules, locked, onSave }: Props) {
+/** Escudo del equipo; si el cruce aún no está resuelto no hay escudo que poner. */
+function Escudo({ url }: { url?: string | null }) {
+  if (!url) return <span className="text-lg shrink-0 text-faint">⚽</span>;
+  return <img src={url} alt="" loading="lazy" className="w-5 h-5 shrink-0 object-contain" />;
+}
+
+export default function MatchCard({
+  matchId, home, away, homeCrest, awayCrest, prediction, result, rules, locked, onSave,
+}: Props) {
   const [h, setH] = useState(prediction.home?.toString() ?? '');
   const [a, setA] = useState(prediction.away?.toString() ?? '');
 
@@ -42,7 +51,7 @@ export default function MatchCard({ matchId, home, away, prediction, result, rul
       {/* Equipo local */}
       <div className="flex-1 flex items-center gap-1.5 justify-end min-w-0">
         <span className="text-sm font-medium truncate text-right">{home}</span>
-        <span className="text-lg shrink-0">{flag(home)}</span>
+        <Escudo url={homeCrest} />
       </div>
 
       {/* Inputs de marcador */}
@@ -70,7 +79,7 @@ export default function MatchCard({ matchId, home, away, prediction, result, rul
 
       {/* Equipo visitante */}
       <div className="flex-1 flex items-center gap-1.5 min-w-0">
-        <span className="text-lg shrink-0">{flag(away)}</span>
+        <Escudo url={awayCrest} />
         <span className="text-sm font-medium truncate">{away}</span>
       </div>
 
