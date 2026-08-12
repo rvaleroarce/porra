@@ -142,11 +142,19 @@ export default function CreatePorra({ onCreated }: { onCreated: (porraId: string
 
   return (
     <div className="w-full max-w-md card flex flex-col gap-6">
+      {/* La competición preside la pantalla: cuando solo hay una cargada el
+          desplegable no aparece, y sin esto no se ve a qué se está creando
+          la porra aunque debajo salgan sus equipos. */}
       <div className="text-center">
-        <span className="text-4xl">🏆</span>
+        {torneo?.emblem_url
+          ? <img src={torneo.emblem_url} alt=""
+                 className="w-14 h-14 mx-auto object-contain" />
+          : <span className="text-4xl">🏆</span>}
         <h2 className="mt-3 text-xl font-bold">Crear tu porra</h2>
         <p className="mt-1 text-sm text-muted">
-          Elige la competición, los equipos y hasta dónde llega.
+          {torneo
+            ? <>Sobre <strong className="text-ink">{torneo.name}</strong>. Elige los equipos y hasta dónde llega.</>
+            : 'Elige la competición, los equipos y hasta dónde llega.'}
         </p>
       </div>
 

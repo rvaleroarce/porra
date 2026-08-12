@@ -44,6 +44,7 @@ export interface Torneo {
   slug: string;
   name: string;
   kind: 'cup' | 'league';
+  emblem_url: string | null;
 }
 
 export interface Team {
@@ -373,7 +374,7 @@ export async function fetchPorraHeader(slug: string): Promise<PorraHeader | null
 
 export async function fetchTorneos(): Promise<Torneo[]> {
   const { data, error } = await supabase
-    .from('torneos').select('id, slug, name, kind').order('created_at');
+    .from('torneos').select('id, slug, name, kind, emblem_url').order('created_at');
   if (error) throw error;
   return data ?? [];
 }
