@@ -28,7 +28,7 @@ export default function Toast({ toast, onDone }: {
         transition-all duration-300
         ${toast.isError
           ? 'bg-accent text-white'
-          : 'bg-success text-bg font-semibold'}`}
+          : 'bg-success text-white font-semibold'}`}
     >
       {toast.msg}
     </div>

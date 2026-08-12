@@ -93,7 +93,7 @@ export default function AdminDanger({ porra, onDeleted }: Props) {
           disabled={busy || input.trim() !== porra.name}
           className="flex-1 px-4 py-2.5 rounded-xl bg-accent text-white text-sm font-semibold
                      disabled:opacity-40 disabled:cursor-not-allowed
-                     hover:bg-orange-500 transition-colors flex items-center justify-center gap-2"
+                     hover:brightness-110 transition-all flex items-center justify-center gap-2"
         >
           {busy ? <><Spinner size="sm" /> Eliminando…</> : 'Eliminar definitivamente'}
         </button>

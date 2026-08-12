@@ -1,23 +1,28 @@
 import type { Config } from 'tailwindcss';
 
+/** Color del tema: se resuelve en tiempo de ejecución desde src/index.css. */
+const tema = (nombre: string) => `rgb(var(--${nombre}) / <alpha-value>)`;
+
 export default {
   content: ['./index.html', './src/**/*.{ts,tsx}'],
   theme: {
     extend: {
+      // Los valores viven en src/index.css, no aquí: es lo que permite que
+      // la app cambie de claro a oscuro según lo que tenga el móvil sin
+      // recompilar ni duplicar clases.
       colors: {
-        // Paleta accesible (propuesta B: alto contraste oscuro)
-        bg:      '#080e1c',
-        bg2:     '#0f1628',
-        card:    '#141d38',
-        line:    '#2a3860',
-        ink:     '#f4f8ff',
-        muted:   '#b8c4e8',
-        faint:   '#8090c8',
-        accent:  '#ff6040',
-        accent2: '#ffc030',
-        success: '#44ee9f',
-        gold:    '#ffd84a',
-        info:    '#5fb5ff',
+        bg:      tema('bg'),
+        bg2:     tema('bg2'),
+        card:    tema('card'),
+        line:    tema('line'),
+        ink:     tema('ink'),
+        muted:   tema('muted'),
+        faint:   tema('faint'),
+        accent:  tema('accent'),
+        accent2: tema('accent2'),
+        success: tema('success'),
+        gold:    tema('gold'),
+        info:    tema('info'),
       },
       fontFamily: {
         display: ['"Bricolage Grotesque"', 'sans-serif'],

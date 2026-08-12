@@ -2,27 +2,63 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Variables CSS (accesibles fuera de Tailwind, p.ej. en gradientes inline) */
+/* =========================================================================
+   Tema
+
+   Los colores van como tripletes RGB sin envolver ("244 81 30") porque es
+   lo que necesita Tailwind para poder aplicarles opacidad: `bg-accent/10`
+   se traduce a `rgb(var(--accent) / 0.1)`. Si aquí hubiera un color ya
+   formado, esos modificadores dejarían de funcionar.
+
+   El claro es el de partida; el oscuro entra solo si el móvil lo pide.
+   ========================================================================= */
 :root {
-  --bg:      #080e1c;
-  --bg2:     #0f1628;
-  --card:    #141d38;
-  --line:    #2a3860;
-  --ink:     #f4f8ff;
-  --muted:   #b8c4e8;
-  --faint:   #8090c8;
-  --accent:  #ff6040;
-  --accent2: #ffc030;
-  --green:   #44ee9f;
-  --gold:    #ffd84a;
-  --blue:    #5fb5ff;
+  --bg:       245 246 248;
+  --bg2:      238 240 244;
+  --card:     255 255 255;
+  --line:     228 231 238;
+  --ink:       22  26  35;
+  --muted:     92 101 119;
+  --faint:    138 146 166;
+  /* Estos tres van más oscuros de lo que pediría el gusto: sobre blanco,
+     el naranja y el verde vivos se quedaban en 3,4:1 y el dorado en 3,2:1,
+     que para una insignia pequeña es ilegible. Aquí llegan a 4,5:1. */
+  --accent:   210  70  26;
+  --accent2:  180  83   9;
+  --success:   12 135  93;
+  --gold:     158 108   0;
+  --info:      37  99 235;
+
+  /* Sobre fondo claro las tarjetas se separan con sombra, no con borde
+     marcado: es lo que hace que la interfaz respire. */
+  --sombra: 0 1px 2px rgb(16 24 40 / .06), 0 1px 3px rgb(16 24 40 / .04);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg:        8  14  28;
+    --bg2:      15  22  40;
+    --card:     20  29  56;
+    --line:     42  56  96;
+    --ink:     244 248 255;
+    --muted:   184 196 232;
+    --faint:   128 144 200;
+    --accent:  255  96  64;
+    --accent2: 255 192  48;
+    --success:  68 238 159;
+    --gold:    255 216  74;
+    --info:     95 181 255;
+
+    /* En oscuro la sombra no se ve; separa el propio contraste de fondos. */
+    --sombra: none;
+  }
 }
 
 @layer base {
   html {
     font-family: 'Inter', sans-serif;
-    background-color: var(--bg);
-    color: var(--ink);
+    background-color: rgb(var(--bg));
+    color: rgb(var(--ink));
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
@@ -45,12 +81,14 @@
   /* Tarjeta base */
   .card {
     @apply bg-card border border-line rounded-xl p-4;
+    box-shadow: var(--sombra);
   }
 
   /* Pill de fase */
   .phase-pill {
     @apply px-3 py-1.5 rounded-full text-sm font-medium whitespace-nowrap
-           border border-line text-muted transition-colors;
+           bg-card border border-line text-muted transition-colors;
+    box-shadow: var(--sombra);
   }
   .phase-pill.active {
     @apply bg-accent border-accent text-white;
@@ -62,16 +100,17 @@
   /* Chip de grupo */
   .group-chip {
     @apply w-8 h-8 rounded-lg text-sm font-semibold flex items-center justify-center
-           border border-line text-muted transition-colors cursor-pointer;
+           bg-card border border-line text-muted transition-colors cursor-pointer;
+    box-shadow: var(--sombra);
   }
   .group-chip.active {
-    @apply bg-accent2 border-accent2 text-bg font-bold;
+    @apply bg-accent2 border-accent2 text-white font-bold;
   }
 
-  /* Input de marcador */
+  /* Input de marcador: se lee como hueco a rellenar, sin dibujarle una caja */
   .score-input {
     @apply w-10 h-10 text-center text-lg font-bold rounded-lg
-           bg-bg2 border border-line text-ink
+           bg-bg2 border border-transparent text-ink
            focus:outline-none focus:border-accent
            disabled:opacity-40 disabled:cursor-not-allowed;
   }
@@ -80,7 +119,7 @@
   .btn-primary {
     @apply px-5 py-2.5 rounded-xl font-semibold text-sm
            bg-accent text-white
-           hover:bg-orange-500 active:scale-95
+           hover:brightness-110 active:scale-95
            disabled:opacity-40 disabled:cursor-not-allowed
            transition-all;
   }
@@ -92,6 +131,7 @@
            hover:border-accent hover:text-ink
            disabled:opacity-40 disabled:cursor-not-allowed
            transition-all;
+    box-shadow: var(--sombra);
   }
 
   /* Badge de puntuación */

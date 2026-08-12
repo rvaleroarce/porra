@@ -9,35 +9,25 @@ interface Props {
 
 /**
  * Header global de la app.
- * Gradiente naranja → amarillo (accent → accent2), Bricolage Grotesque 800.
  *
- * La competición se enseña siempre que se sepa: con varias cargadas —liga y
- * copa a la vez— el participante necesita saber a qué está jugando.
+ * Sin fondo de color: el bloque naranja pesaba mucho y ataba la app a un
+ * torneo concreto. Ahora lo que identifica la pantalla es el escudo de la
+ * competición, y el acento se reserva para lo que se puede pulsar.
  */
 export default function Header({ porraName, tournamentName, tournamentEmblem }: Props) {
   return (
-    <header
-      className="w-full py-5 px-4 text-center"
-      style={{
-        background: 'linear-gradient(135deg, var(--accent) 0%, var(--accent2) 100%)',
-      }}
-    >
-      <div className="flex items-center justify-center gap-2 mb-1">
+    <header className="w-full py-4 px-4 text-center bg-card border-b border-line">
+      <div className="flex items-center justify-center gap-1.5 mb-0.5">
         {tournamentEmblem && (
-          <img
-            src={tournamentEmblem}
-            alt=""
-            className="w-6 h-6 object-contain drop-shadow"
-            style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,.35))' }}
-          />
+          <img src={tournamentEmblem} alt="" className="w-4 h-4 object-contain" />
         )}
-        <p className="text-xs font-semibold uppercase tracking-widest text-white/80">
+        <p className="text-[0.65rem] font-bold uppercase tracking-[0.14em] text-muted">
           {tournamentName ?? 'Porra'}
         </p>
       </div>
 
       <h1
-        className="text-2xl text-white leading-tight"
+        className="text-xl text-ink leading-tight"
         style={{ fontFamily: '"Bricolage Grotesque", sans-serif', fontWeight: 800 }}
       >
         {porraName ?? tournamentName ?? 'Porra'}
