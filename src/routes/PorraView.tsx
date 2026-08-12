@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useToken } from '@/hooks/useToken';
 import { useBootData } from '@/hooks/useBootData';
+import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { supabase, rpcSavePredictions, rpcSubmitPhase, type BootMatch } from '@/lib/supabase';
 import type { Score } from '@/types';
 import Header from '@/components/Header';
@@ -31,6 +32,8 @@ export default function PorraView() {
   const { token, clearToken } = useToken(slug!);
 
   const { data: boot, loading, error, refresh } = useBootData(slug!, token);
+
+  useDocumentTitle([boot?.porra.name, boot?.torneo.name]);
 
   const [tab, setTab]           = useState<Tab>('porra');
   const [activePhase, setPhase] = useState('');

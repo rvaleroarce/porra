@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase, fetchPorraHeader, type PorraHeader } from '@/lib/supabase';
 import Header from '@/components/Header';
+import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 
 export default function Ayuda() {
   const { slug }    = useParams<{ slug: string }>();
@@ -15,6 +16,8 @@ export default function Ayuda() {
       .then(({ data }) => setPrizeInfo(data?.prize_info ?? null));
     fetchPorraHeader(slug).then(setCabecera);
   }, [slug]);
+
+  useDocumentTitle(['Cómo funciona', cabecera?.name]);
 
   // El vocabulario cambia con la competición: en una liga se juega por
   // jornadas y no hay grupos ni prórroga; en una copa, al revés. Un texto

@@ -2,6 +2,7 @@ import { useState, useEffect, type FormEvent } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { rpcRegister, isRpcError, fetchPorraHeader, type PorraHeader } from '@/lib/supabase';
 import { useToken } from '@/hooks/useToken';
+import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import Header from '@/components/Header';
 import Spinner from '@/components/Spinner';
 
@@ -16,6 +17,8 @@ export default function Register() {
   useEffect(() => {
     if (slug) fetchPorraHeader(slug).then(setCabecera);
   }, [slug]);
+
+  useDocumentTitle([cabecera?.name, cabecera?.torneo?.name]);
 
   const [name,  setName]  = useState('');
   const [phone, setPhone] = useState('');
