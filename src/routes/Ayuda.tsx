@@ -16,6 +16,12 @@ export default function Ayuda() {
     fetchPorraHeader(slug).then(setCabecera);
   }, [slug]);
 
+  // El vocabulario cambia con la competición: en una liga se juega por
+  // jornadas y no hay grupos ni prórroga; en una copa, al revés. Un texto
+  // neutro que valiera para ambas acabaría sonando vago en las dos.
+  const esLiga = cabecera?.torneo?.kind === 'league';
+  const unidad = esLiga ? 'jornada' : 'fase';
+
   return (
     <div className="min-h-screen flex flex-col">
       <Header
@@ -53,18 +59,30 @@ export default function Ayuda() {
         </Section>
 
         <Section icon="⚽" title="Rellena tus pronósticos">
-          <p>En la pestaña <strong>📝 Mi porra</strong> encontrarás los partidos organizados por fase y grupo.</p>
+          <p>En la pestaña <strong>📝 Mi porra</strong> encontrarás los partidos
+          organizados por {esLiga ? <>jornada</> : <>fase y grupo</>}.</p>
           <p className="mt-2">Para cada partido escribe el marcador que crees que será el resultado final.
-          Se cuenta el resultado al final del tiempo reglamentario o de la prórroga si la hay,
-          <strong> nunca el resultado de los penaltis</strong>.</p>
+          {esLiga
+            ? <> Cuenta el marcador con el que acaba el partido.</>
+            : <> Se cuenta el resultado al final del tiempo reglamentario o de la prórroga
+                si la hay,<strong> nunca el resultado de los penaltis</strong>.</>}
+          </p>
           <p className="mt-2">Pulsa <strong>"Completar a 0-0"</strong> para rellenar de golpe
           los partidos que aún no hayas tocado — sin sobreescribir lo que ya pusiste.</p>
         </Section>
 
+        <Section icon="⏰" title={`Cada ${unidad} se cierra sola`}>
+          <p>No hay que esperar a que nadie la cierre: {esLiga ? 'una jornada' : 'una fase'} deja
+          de admitir cambios <strong>en cuanto empieza su primer partido</strong>. La hora exacta
+          la tienes escrita arriba de la lista de partidos.</p>
+          <p className="mt-2">Puedes ir rellenando {esLiga ? 'las jornadas siguientes' : 'las fases siguientes'} con
+          toda la antelación que quieras; cada una se cerrará a su hora.</p>
+        </Section>
+
         <Section icon="📤" title="Envía tu porra">
           Cuando estés listo pulsa <strong>"Enviar porra ➜"</strong>. Una vez enviada,
-          esa fase queda <strong>bloqueada</strong> y no podrás cambiar nada.
-          Hazlo antes de la fecha límite que marque el organizador.
+          esa {unidad} queda <strong>bloqueada</strong> y no podrás cambiar nada,
+          aunque todavía no haya llegado su hora de cierre.
         </Section>
 
         <Section icon="💰" title="El pago">
@@ -101,8 +119,10 @@ export default function Ayuda() {
         </Section>
 
         <Section icon="📊" title="Clasificación">
-          En la pestaña <strong>🏆 Clasificación</strong> puedes ver la tabla en tiempo real
-          conforme el organizador vaya metiendo los resultados. Tu fila aparece resaltada.
+          En la pestaña <strong>🏆 Clasificación</strong> puedes ver la tabla en tiempo real.
+          Los resultados entran solos poco después de cada partido, así que no hay que
+          esperar a que nadie los teclee. Tu fila aparece resaltada, y quien empate a
+          puntos y a exactos comparte puesto.
         </Section>
 
         {slug && (

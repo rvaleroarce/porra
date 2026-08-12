@@ -358,17 +358,17 @@ export async function triggerSync(): Promise<{ torneos: { torneo: string; partid
  */
 export interface PorraHeader {
   name: string;
-  torneo: { name: string; emblem_url: string | null } | null;
+  torneo: { name: string; emblem_url: string | null; kind: 'cup' | 'league' } | null;
 }
 
 export async function fetchPorraHeader(slug: string): Promise<PorraHeader | null> {
   const { data, error } = await supabase
     .from('porras')
-    .select('name, prize_info, torneos(name, emblem_url)')
+    .select('name, prize_info, torneos(name, emblem_url, kind)')
     .eq('slug', slug)
     .single();
   if (error || !data) return null;
-  const t = data.torneos as unknown as { name: string; emblem_url: string | null } | null;
+  const t = data.torneos as unknown as PorraHeader['torneo'];
   return { name: data.name, torneo: t };
 }
 
