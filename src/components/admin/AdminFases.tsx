@@ -50,19 +50,39 @@ export default function AdminFases({ porra, phases, onUpdated }: Props) {
     );
   }
 
+  // Una fase abierta sin fecha no se cierra sola: es el único caso que
+  // obliga al admin a intervenir, así que se avisa arriba y en la propia
+  // tarjeta. No depende de si es liga o copa, sino de que el proveedor haya
+  // publicado el horario.
+  const sinFecha = phases.filter(p => p.open && !p.deadline);
+
   return (
     <div className="flex flex-col gap-3">
       <p className="text-xs text-muted">
-        Abre o cierra cada fase. La fecha límite se calcula sola con el primer
-        partido de la fase; si la fijas a mano, deja de actualizarse.
+        Las fases nacen abiertas y se cierran solas con el primer partido de la
+        fase. El interruptor es para cerrar alguna a mano; la fecha, para
+        adelantarla o retrasarla.
       </p>
+
+      {sinFecha.length > 0 && (
+        <div className="card border-accent/40 bg-accent/5 py-2.5 px-3">
+          <p className="text-xs text-accent">
+            {sinFecha.length === 1
+              ? `${sinFecha[0].name} no tiene fecha, así que no se cerrará sola.`
+              : `${sinFecha.length} fases no tienen fecha y no se cerrarán solas.`}
+            {' '}Ponles una o ciérralas a mano cuando toque.
+          </p>
+        </div>
+      )}
 
       {phases.map(phase => {
         const { phase_id, name, open, deadline } = phase;
         const isBusy = busy === phase_id || busy === phase_id + '-dl';
+        const alerta = open && !deadline;
 
         return (
-          <div key={phase_id} className="card flex flex-col gap-2 py-3">
+          <div key={phase_id}
+               className={`card flex flex-col gap-2 py-3 ${alerta ? 'border-accent/40' : ''}`}>
             <div className="flex items-center justify-between gap-2">
               <p className="font-medium text-sm">{name}</p>
               <button
@@ -84,7 +104,9 @@ export default function AdminFases({ porra, phases, onUpdated }: Props) {
             </div>
 
             <div className="flex items-center gap-2">
-              <label className="text-xs text-muted whitespace-nowrap">Cierra</label>
+              <label className={`text-xs whitespace-nowrap ${alerta ? 'text-accent' : 'text-muted'}`}>
+                {alerta ? 'Sin fecha' : 'Cierra'}
+              </label>
               <input
                 type="datetime-local"
                 defaultValue={aInputLocal(deadline)}

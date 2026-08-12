@@ -1043,9 +1043,11 @@ begin
   values (p_torneo_id, p_slug, p_name, p_cuota)
   returning id into v_porra_id;
 
-  -- Fases: las indicadas, o todas las del torneo
-  insert into porra_phases (porra_id, phase_id, order_num)
-  select v_porra_id, tp.phase_id, tp.order_num
+  -- Fases: las indicadas, o todas las del torneo. Abiertas de entrada; se
+  -- cierran solas al llegar su fecha límite, así que con 38 jornadas no hay
+  -- que ir abriéndolas una a una.
+  insert into porra_phases (porra_id, phase_id, open, order_num)
+  select v_porra_id, tp.phase_id, true, tp.order_num
   from tournament_phases tp
   where tp.torneo_id = p_torneo_id
     and (p_phase_ids is null or tp.phase_id = any(p_phase_ids));
