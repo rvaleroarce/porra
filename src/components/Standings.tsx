@@ -36,10 +36,20 @@ export default function Standings({
   // Al participante "Pagados: 8" no le dice nada: es un dato de gestión. El
   // bote sí, y por eso ocupa su sitio. Solo se puede calcular si hay importe
   // por cabeza; si no lo hay, se cae a contar cuánta gente juega.
-  const hayBote = typeof cuota === 'number' && cuota > 0;
+  //
+  // Se convierte a número en vez de comprobar el tipo: `numeric` de Postgres
+  // llega unas veces como número y otras como cadena. Y si algún dato falta
+  // —una base de datos sin la migración del bote, por ejemplo— se enseña un
+  // guion, nunca un "NaN €".
+  const importe = Number(cuota);
+  const pagados = Number(paidCount);
+  const hayBote = Number.isFinite(importe) && importe > 0 && Number.isFinite(pagados);
   const central = hayBote
-    ? { label: 'Bote', value: euros(paidCount * cuota) }
-    : { label: isFree ? 'Jugando' : 'Pagados', value: paidCount };
+    ? { label: 'Bote', value: euros(pagados * importe) }
+    : {
+        label: isFree ? 'Jugando' : 'Pagados',
+        value: Number.isFinite(pagados) ? pagados : '—',
+      };
   // Ranking "1-1-3-4-5-6": los empatados en pts comparten puesto (mismo número/medalla),
   // el siguiente distinto salta al índice real, no al consecutivo.
   // Ej: 5 empatados en 1º -> 1,1,1,1,1,6
