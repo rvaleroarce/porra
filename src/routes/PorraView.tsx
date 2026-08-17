@@ -4,21 +4,16 @@ import { useToken } from '@/hooks/useToken';
 import { useBootData } from '@/hooks/useBootData';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { supabase, rpcSavePredictions, rpcSubmitPhase, type BootMatch } from '@/lib/supabase';
+import { isDeadlinePast } from '@/lib/fases';
 import type { Score } from '@/types';
 import Header from '@/components/Header';
 import Spinner from '@/components/Spinner';
 import Standings from '@/components/Standings';
+import Pronosticos from '@/components/Pronosticos';
 import MatchCard from '@/components/MatchCard';
 import Toast, { type ToastState } from '@/components/Toast';
 
-type Tab = 'porra' | 'clasificacion';
-
-// La fecha límite es el instante del primer partido de la fase, así que basta
-// comparar marcas de tiempo: cliente y servidor (`now() >= deadline`) coinciden.
-function isDeadlinePast(deadline: string | null): boolean {
-  if (!deadline) return false;
-  return Date.now() >= new Date(deadline).getTime();
-}
+type Tab = 'porra' | 'clasificacion' | 'pronosticos';
 
 function formatoFecha(iso: string): string {
   return new Date(iso).toLocaleString('es-ES', {
@@ -328,6 +323,16 @@ export default function PorraView() {
           />
         )}
 
+        {/* ── Pronósticos de todos ── */}
+        {tab === 'pronosticos' && (
+          <Pronosticos
+            slug={slug!}
+            phases={phases}
+            rules={rules}
+            currentUserId={user?.id}
+          />
+        )}
+
         {/* ── Mi porra ── */}
         {tab === 'porra' && (
           <div className="flex flex-col gap-4">
@@ -484,6 +489,12 @@ export default function PorraView() {
           className={`tab-item ${tab === 'porra' ? 'active' : ''}`}
         >
           📝 Mi porra
+        </button>
+        <button
+          onClick={() => setTab('pronosticos')}
+          className={`tab-item ${tab === 'pronosticos' ? 'active' : ''}`}
+        >
+          👀 Todos
         </button>
         <button
           onClick={() => setTab('clasificacion')}

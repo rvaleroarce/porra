@@ -353,6 +353,45 @@ export async function triggerSync(): Promise<{ torneos: { torneo: string; partid
    Lecturas directas del fixture (tablas de lectura pública)
    ----------------------------------------------------------------------- */
 
+/* Pronósticos de todos en una fase (ver `phase_predictions`). */
+export interface PhasePrediction {
+  user_id: string;
+  name: string;
+  home: number;
+  away: number;
+}
+
+export interface PhasePredictionMatch {
+  match_id:   string;
+  home:       string | null;
+  away:       string | null;
+  home_crest: string | null;
+  away_crest: string | null;
+  kickoff:    string | null;
+  home_score: number | null;
+  away_score: number | null;
+  preds:      PhasePrediction[];
+}
+
+/**
+ * Lo que pronosticó cada uno en una fase.
+ *
+ * `revealed` viene a false mientras la fase siga viva, y entonces `matches`
+ * llega vacío: quien decide es el servidor, no esta llamada.
+ */
+export async function fetchPhasePredictions(slug: string, phaseId: string) {
+  const { data, error } = await supabase.rpc('phase_predictions', {
+    p_slug: slug,
+    p_phase_id: phaseId,
+  });
+  if (error) throw error;
+  return data as RpcResult<{
+    ok: true;
+    revealed: boolean;
+    matches: PhasePredictionMatch[];
+  }>;
+}
+
 /**
  * Datos mínimos para la cabecera de una porra: su nombre y el de la
  * competición. Lo usan Registro y Ayuda, que necesitan el rótulo pero no
