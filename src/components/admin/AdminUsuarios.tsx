@@ -16,6 +16,8 @@ interface Props {
   users: AdminUser[];
   phases: Phase[];
   porraSlug: string;
+  porraName: string;
+  tournamentName?: string | null;
   isFree: boolean;
   onUpdated: () => void;
 }
@@ -28,7 +30,9 @@ function getActivePhase(phases: Phase[]): Phase | null {
   ) ?? null;
 }
 
-export default function AdminUsuarios({ users, phases, porraSlug, isFree, onUpdated }: Props) {
+export default function AdminUsuarios({
+  users, phases, porraSlug, porraName, tournamentName, isFree, onUpdated,
+}: Props) {
   const [busy, setBusy] = useState<string | null>(null);
 
   const paid    = users.filter(u => u.paid).length;
@@ -64,8 +68,11 @@ export default function AdminUsuarios({ users, phases, porraSlug, isFree, onUpda
     let phone = user.phone.replace(/\D/g, '');
     if (phone.length === 9) phone = '34' + phone;
     const link = personalLink(user.token);
+    // El nombre sale de la porra, no escrito a mano: este mensaje decía
+    // "la porra del Mundial" en cualquier competición.
+    const deQue = tournamentName ? `${porraName} (${tournamentName})` : porraName;
     const text  = encodeURIComponent(
-      `¡Hola ${user.alias || user.name}! 🏆 Te mando tu enlace personal para la porra del Mundial:\n\n${link}\n\nGuárdalo en favoritos para volver cuando quieras.`
+      `¡Hola ${user.alias || user.name}! 🏆 Te mando tu enlace personal para ${deQue}:\n\n${link}\n\nGuárdalo en favoritos para volver cuando quieras.`
     );
     window.open(`https://wa.me/${phone}?text=${text}`, '_blank');
   }

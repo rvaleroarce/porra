@@ -96,6 +96,8 @@ export interface BootResponse {
     order_num: number;
   }[];
   matches: BootMatch[];
+  /** Participantes que cuentan: los que han pagado, o todos si la porra es gratis. */
+  paid_count: number;
   standings: {
     id: string;
     name: string;

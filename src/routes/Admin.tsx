@@ -147,7 +147,8 @@ export default function Admin() {
               <Standings
                 standings={boot.standings}
                 matchesPlayed={boot.matches.filter(m => m.home_score != null).length}
-                paidCount={activePorra.cuota === 0 ? boot.standings.length : users.filter(u => u.paid).length}
+                paidCount={boot.paid_count}
+                cuota={activePorra.cuota}
                 rules={{ exact: boot.porra.exact_pts, sign: boot.porra.sign_pts, miss: boot.porra.miss_pts }}
                 prizeInfo={activePorra.prize_info}
                 isFree={activePorra.cuota === 0}
@@ -199,6 +200,8 @@ export default function Admin() {
                     users={users}
                     phases={boot?.phases ?? []}
                     porraSlug={activePorra.slug}
+                    porraName={activePorra.name}
+                    tournamentName={boot?.torneo.name}
                     isFree={activePorra.cuota === 0}
                     onUpdated={refresh}
                   />

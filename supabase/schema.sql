@@ -369,6 +369,15 @@ begin
       left join teams awayt  on awayt.id  = tm.away_team_id
       where pm.porra_id = v_porra.id
     ),
+    -- Cuántos cuentan para el bote. No vale usar el tamaño de la
+    -- clasificación: ahí solo aparece quien ya tiene alguna fase contabilizada,
+    -- así que al empezar el torneo saldrían menos de los que son.
+    'paid_count', (
+      select count(*)
+      from users u
+      where u.porra_id = v_porra.id
+        and (v_porra.cuota = 0 or u.paid = true)
+    ),
     'standings', (
       select coalesce(json_agg(
         json_build_object(

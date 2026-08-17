@@ -319,7 +319,8 @@ export default function PorraView() {
           <Standings
             standings={boot.standings}
             matchesPlayed={boot.matches.filter(m => m.home_score != null).length}
-            paidCount={boot.standings.length}
+            paidCount={boot.paid_count}
+            cuota={boot.porra.cuota}
             rules={rules}
             currentUserId={user?.id}
             prizeInfo={prizeInfo}

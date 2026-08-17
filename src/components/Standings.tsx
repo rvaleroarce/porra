@@ -12,6 +12,8 @@ interface Props {
   standings: StandingRow[];
   matchesPlayed: number;
   paidCount: number;
+  /** null = de pago sin importe fijado; 0 = gratis; >0 = importe por cabeza. */
+  cuota?: number | null;
   rules: Rules;
   currentUserId?: string;
   prizeInfo?: string | null;
@@ -20,7 +22,24 @@ interface Props {
 
 const MEDALS = ['🥇', '🥈', '🥉'];
 
-export default function Standings({ standings, matchesPlayed, paidCount, rules, currentUserId, prizeInfo, isFree }: Props) {
+/** Importe sin decimales cuando son céntimos a cero, que es lo habitual. */
+function euros(n: number): string {
+  return n.toLocaleString('es-ES', {
+    style: 'currency', currency: 'EUR',
+    minimumFractionDigits: 0, maximumFractionDigits: 2,
+  });
+}
+
+export default function Standings({
+  standings, matchesPlayed, paidCount, cuota, rules, currentUserId, prizeInfo, isFree,
+}: Props) {
+  // Al participante "Pagados: 8" no le dice nada: es un dato de gestión. El
+  // bote sí, y por eso ocupa su sitio. Solo se puede calcular si hay importe
+  // por cabeza; si no lo hay, se cae a contar cuánta gente juega.
+  const hayBote = typeof cuota === 'number' && cuota > 0;
+  const central = hayBote
+    ? { label: 'Bote', value: euros(paidCount * cuota) }
+    : { label: isFree ? 'Jugando' : 'Pagados', value: paidCount };
   // Ranking "1-1-3-4-5-6": los empatados en pts comparten puesto (mismo número/medalla),
   // el siguiente distinto salta al índice real, no al consecutivo.
   // Ej: 5 empatados en 1º -> 1,1,1,1,1,6
@@ -47,7 +66,7 @@ export default function Standings({ standings, matchesPlayed, paidCount, rules, 
       <div className="grid grid-cols-3 gap-3">
         {[
           { label: 'Partidos', value: matchesPlayed },
-          { label: isFree ? 'Jugando' : 'Pagados', value: paidCount },
+          central,
           { label: 'Puntos', value: `${rules.exact}/${rules.sign}/${rules.miss}` },
         ].map(s => (
           <div key={s.label} className="card text-center py-3">
