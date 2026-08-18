@@ -12,8 +12,9 @@ import AdminReglas from '@/components/admin/AdminReglas';
 import AdminUsuarios from '@/components/admin/AdminUsuarios';
 import AdminDanger from '@/components/admin/AdminDanger';
 import Standings from '@/components/Standings';
+import Pronosticos from '@/components/Pronosticos';
 
-type AdminTab     = 'clasificacion' | 'admin';
+type AdminTab     = 'clasificacion' | 'pronosticos' | 'admin';
 type AdminSection = 'fases' | 'resultados' | 'reglas' | 'usuarios' | 'peligroso';
 
 export default function Admin() {
@@ -155,6 +156,14 @@ export default function Admin() {
               />
             )}
 
+            {tab === 'pronosticos' && boot && (
+              <Pronosticos
+                slug={activePorra.slug}
+                phases={boot.phases}
+                rules={{ exact: boot.porra.exact_pts, sign: boot.porra.sign_pts, miss: boot.porra.miss_pts }}
+              />
+            )}
+
             {tab === 'admin' && (
               <div className="flex flex-col gap-4">
                 {boot && <AdminAmbito boot={boot} />}
@@ -244,6 +253,12 @@ export default function Admin() {
           className={`tab-item ${tab === 'clasificacion' ? 'active' : ''}`}
         >
           🏆 Clasificación
+        </button>
+        <button
+          onClick={() => setTab('pronosticos')}
+          className={`tab-item ${tab === 'pronosticos' ? 'active' : ''}`}
+        >
+          👀 Todos
         </button>
         <button
           onClick={() => setTab('admin')}
