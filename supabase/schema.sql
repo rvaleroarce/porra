@@ -1026,12 +1026,25 @@ set search_path = public
 as $$
 declare
   v_torneo_id uuid;
+  v_kind      text;
   v_filtra    boolean;
   v_added     integer;
 begin
-  select torneo_id into v_torneo_id from porras where id = p_porra_id;
+  select p.torneo_id, t.kind into v_torneo_id, v_kind
+  from porras p join torneos t on t.id = p.torneo_id
+  where p.id = p_porra_id;
   if not found then
     return json_build_object('ok', false, 'error', 'Porra no encontrada');
+  end if;
+
+  -- En copa, la porra adopta las fases que el torneo haya ganado desde que
+  -- se creó. Nacen abiertas, como el resto.
+  if v_kind = 'cup' then
+    insert into porra_phases (porra_id, phase_id, open, order_num)
+    select p_porra_id, tp.phase_id, true, tp.order_num
+    from tournament_phases tp
+    where tp.torneo_id = v_torneo_id
+    on conflict (porra_id, phase_id) do nothing;
   end if;
 
   v_filtra := exists(select 1 from porra_teams where porra_id = p_porra_id);
