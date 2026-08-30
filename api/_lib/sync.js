@@ -19,27 +19,61 @@ const ESTADOS = {
   CANCELLED: 'cancelled',
 };
 
+/** Las fases de copa del proveedor, en el orden en que se juegan. */
+const FASES_COPA = {
+  // `liguilla` = varios partidos por equipo, no una eliminatoria. Se numeran
+  // como jornadas; el resto, como ida y vuelta.
+  LEAGUE_STAGE:   { name: 'Liguilla',       short: 'J',      orden: 0, liguilla: true },
+  GROUP_STAGE:    { name: 'Fase de grupos', short: 'Grupos', orden: 0, liguilla: true },
+  PLAYOFFS:       { name: 'Playoffs',       short: 'PO',     orden: 1 },
+  LAST_32:        { name: 'Dieciseisavos',  short: '1/16',   orden: 2 },
+  LAST_16:        { name: 'Octavos',        short: '1/8',    orden: 3 },
+  QUARTER_FINALS: { name: 'Cuartos',        short: '1/4',    orden: 4 },
+  SEMI_FINALS:    { name: 'Semifinales',    short: 'SF',     orden: 5 },
+  THIRD_PLACE:    { name: 'Tercer puesto',  short: '3º/4º',  orden: 6 },
+  FINAL:          { name: 'Final',          short: 'Final',  orden: 7 },
+};
+
 /**
- * En una liga la fase es la jornada. En una copa, football-data usa `stage`
- * (GROUP_STAGE, LAST_16, FINAL…) y `group` para el grupo.
+ * A qué fase de la porra pertenece un partido.
+ *
+ * En una liga es su jornada, sin más. En una copa manda el `stage` del
+ * proveedor, pero **se parte por jornada cuando esa fase tiene más de una**:
+ * la liguilla de la Champions son 144 partidos en 8 jornadas, y meterlos en
+ * una sola fase significaría una única fecha límite en septiembre para todo
+ * el torneo. Lo mismo con las eliminatorias a doble partido: si ida y vuelta
+ * comparten fase, cerrar la ida congela la vuelta una semana antes de jugarse.
+ *
+ * `variasJornadas` se calcula mirando todos los partidos de esa fase, no este
+ * partido suelto: una eliminatoria a partido único no debe acabar etiquetada
+ * como "ida".
  */
-function faseDe(partido, kind) {
+function faseDe(partido, kind, variasJornadas = false) {
   if (kind === 'league') {
     const j = partido.matchday;
     return { phase_id: `J${j}`, name: `Jornada ${j}`, short_name: `J${j}`, order_num: j };
   }
-  const NOMBRES = {
-    GROUP_STAGE:    ['Fase de grupos', 'Grupos', 0],
-    LAST_32:        ['Dieciseisavos',  '1/16',   1],
-    LAST_16:        ['Octavos',        '1/8',    2],
-    QUARTER_FINALS: ['Cuartos',        '1/4',    3],
-    SEMI_FINALS:    ['Semifinales',    'Semis',  4],
-    THIRD_PLACE:    ['Tercer puesto',  '3º/4º',  5],
-    FINAL:          ['Final',          'Final',  6],
+
+  const f = FASES_COPA[partido.stage]
+    ?? { name: partido.stage, short: partido.stage, orden: 90 };
+  const j = partido.matchday;
+
+  if (!variasJornadas || !j) {
+    return {
+      phase_id: partido.stage,
+      name: f.name,
+      short_name: f.short,
+      order_num: f.orden * 100,
+    };
+  }
+
+  const esIda = j === 1;
+  return {
+    phase_id:   `${partido.stage}-${j}`,
+    name:       f.liguilla ? `Jornada ${j}` : `${f.name} (${esIda ? 'ida' : 'vuelta'})`,
+    short_name: f.liguilla ? `J${j}`        : `${f.short} ${esIda ? 'ida' : 'vta'}`,
+    order_num:  f.orden * 100 + j,
   };
-  const [name, short_name, order_num] =
-    NOMBRES[partido.stage] ?? [partido.stage, partido.stage, 99];
-  return { phase_id: partido.stage, name, short_name, order_num };
 }
 
 /**
@@ -96,9 +130,14 @@ export async function syncTorneo(db, token, torneo, log = () => {}) {
   /* 3. Partidos y fases -------------------------------------------------- */
   const { matches } = await api(`/competitions/${torneo.provider_code}/matches`);
 
+  // Cuántas jornadas tiene cada fase: es lo que decide si se parte o no, y
+  // solo se sabe mirando todos los partidos, no uno suelto.
+  const jornadasPorFase = {};
+  for (const m of matches) (jornadasPorFase[m.stage] ??= new Set()).add(m.matchday ?? 0);
+
   const fases = new Map();
   const partidos = matches.map((m) => {
-    const fase = faseDe(m, torneo.kind);
+    const fase = faseDe(m, torneo.kind, (jornadasPorFase[m.stage]?.size ?? 1) > 1);
     if (!fases.has(fase.phase_id)) fases.set(fase.phase_id, { torneo_id: torneo.id, ...fase });
 
     // El marcador solo se toma de partidos acabados: mientras se juega,
