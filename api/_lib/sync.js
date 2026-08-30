@@ -136,14 +136,16 @@ export async function syncTorneo(db, token, torneo, log = () => {}) {
   for (const m of matches) (jornadasPorFase[m.stage] ??= new Set()).add(m.matchday ?? 0);
 
   const fases = new Map();
+  const acabados = [];   // los únicos que traen marcador del proveedor
+
   const partidos = matches.map((m) => {
     const fase = faseDe(m, torneo.kind, (jornadasPorFase[m.stage]?.size ?? 1) > 1);
     if (!fases.has(fase.phase_id)) fases.set(fase.phase_id, { torneo_id: torneo.id, ...fase });
 
-    // El marcador solo se toma de partidos acabados: mientras se juega,
-    // fullTime viene a null y machacaría lo que ya hubiera.
-    const acabado = ESTADOS[m.status] === 'finished';
-    return {
+    // Sin marcador: se guarda aparte, más abajo. Escribirlo aquí obligaría a
+    // poner null en los partidos que el proveedor aún no da por terminados, y
+    // eso borraría el resultado que el admin hubiera metido a mano.
+    const fila = {
       torneo_id:    torneo.id,
       match_id:     String(m.id),
       phase_id:     fase.phase_id,
@@ -154,11 +156,18 @@ export async function syncTorneo(db, token, torneo, log = () => {}) {
       away_label:   m.awayTeam?.name ?? '',
       kickoff:      m.utcDate,
       status:       ESTADOS[m.status] ?? 'scheduled',
-      home_score:   acabado ? m.score?.fullTime?.home ?? null : null,
-      away_score:   acabado ? m.score?.fullTime?.away ?? null : null,
       order_num:    fase.order_num,
       updated_at:   new Date().toISOString(),
     };
+
+    if (ESTADOS[m.status] === 'finished') {
+      acabados.push({
+        ...fila,
+        home_score: m.score?.fullTime?.home ?? null,
+        away_score: m.score?.fullTime?.away ?? null,
+      });
+    }
+    return fila;
   });
 
   const { error: eF } = await db.from('tournament_phases')
@@ -166,13 +175,24 @@ export async function syncTorneo(db, token, torneo, log = () => {}) {
   if (eF) throw new Error(`Guardando fases: ${eF.message}`);
   log(`Fases: ${fases.size}`);
 
-  // En lotes: 380 filas de golpe hacen una petición incómodamente grande
-  for (let i = 0; i < partidos.length; i += 100) {
-    const { error } = await db.from('tournament_matches')
-      .upsert(partidos.slice(i, i + 100), { onConflict: 'torneo_id,match_id' });
-    if (error) throw new Error(`Guardando partidos: ${error.message}`);
-  }
-  const conResultado = partidos.filter((p) => p.home_score !== null).length;
+  // Dos pasadas, y el orden importa. Primero todos los partidos sin tocar el
+  // marcador: horarios, equipos y estado. Después, solo los que el proveedor
+  // da por terminados llevan resultado. Así un partido que él aún no cierra
+  // conserva el marcador que el admin haya metido a mano, en vez de volver a
+  // quedarse en blanco cada vez que corre el cron.
+  //
+  // En lotes: 380 filas de golpe hacen una petición incómodamente grande.
+  const guardar = async (filas, que) => {
+    for (let i = 0; i < filas.length; i += 100) {
+      const { error } = await db.from('tournament_matches')
+        .upsert(filas.slice(i, i + 100), { onConflict: 'torneo_id,match_id' });
+      if (error) throw new Error(`Guardando ${que}: ${error.message}`);
+    }
+  };
+  await guardar(partidos, 'partidos');
+  await guardar(acabados, 'resultados');
+
+  const conResultado = acabados.filter((p) => p.home_score !== null).length;
   log(`Partidos: ${partidos.length} (${conResultado} con resultado)`);
 
   /* 4. Repercutir en las porras ------------------------------------------ */
