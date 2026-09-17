@@ -1,7 +1,8 @@
 # CLAUDE.md — Porra
 
 Contexto esencial del proyecto para arrancar cualquier sesión.
-Para el despliegue desde cero, ver `DESPLIEGUE.md`.
+Para el despliegue desde cero, ver `DESPLIEGUE.md`; para recuperar con datos tras un
+desastre, `RESTAURACION.md`.
 
 ## Qué es
 
