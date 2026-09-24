@@ -91,6 +91,12 @@ pronósticos ya emitidos.
 - BD: `schema.sql` es la receta desde cero; los cambios posteriores van como migraciones
   numeradas en `supabase/migrations/`, y **las ejecuta el usuario** en el SQL Editor.
   Las de la etapa Mundial están archivadas en `migrations/v1-mundial/`.
+- **Grants en tablas nuevas**: desde el 30-oct-2026 Supabase ya no auto-concede acceso al
+  Data API a tablas nuevas de `public`. Toda migración que haga `create table` debe incluir
+  sus grants (y reflejarlos en `schema.sql` §5b), o PostgREST responde "permission denied":
+  `grant select on public.X to anon, authenticated;`
+  `grant select, insert, update, delete on public.X to authenticated, service_role;`
+  (ajusta según sea lectura pública o solo-RPC, como el resto de tablas).
 - Los volcados de la BD llevan teléfonos, emails y tokens: viven **fuera del repo**.
 
 ## Tema
