@@ -2,14 +2,16 @@ import { useState, useEffect, useMemo } from 'react';
 import {
   rpcSetResult, rpcSetMatchTeams, triggerSync,
   fetchTournamentMatches, fetchPhases, fetchTeams,
-  type TournamentMatch, type TournamentPhase, type Team,
+  type TournamentMatch, type TournamentPhase, type Team, type BootResponse,
 } from '@/lib/supabase';
+import { estaCerrada } from '@/lib/fases';
 import Spinner from '@/components/Spinner';
 
 interface Props {
   torneoId: string;
   /** Partidos que entran en la porra activa, para no enseñar el torneo entero. */
   porraMatchIds: string[];
+  porraPhases: BootResponse['phases'];
   onUpdated: () => void;
 }
 
@@ -22,7 +24,7 @@ interface Props {
  * ver los 380 del torneo es ruido. El enlace "ver todos" queda para el caso
  * de varias porras con equipos distintos.
  */
-export default function AdminResultados({ torneoId, porraMatchIds, onUpdated }: Props) {
+export default function AdminResultados({ torneoId, porraMatchIds, porraPhases, onUpdated }: Props) {
   const [matches, setMatches] = useState<TournamentMatch[]>([]);
   const [phases, setPhases]   = useState<TournamentPhase[]>([]);
   const [teams, setTeams]     = useState<Team[]>([]);
@@ -66,13 +68,30 @@ export default function AdminResultados({ torneoId, porraMatchIds, onUpdated }: 
     return phases.filter(p => conPartidos.has(p.phase_id));
   }, [phases, delAmbito]);
 
-  // Al cambiar el ámbito, la fase activa puede quedarse fuera
+  /**
+   * Terminada: todos sus partidos tienen marcador (los aplazados no cuentan,
+   * o una jornada con uno pendiente no se daría nunca por acabada).
+   * Actual: la última cerrada según `estaCerrada`, la misma regla con la que
+   * el participante arranca en la primera abierta. Es donde toca meter
+   * marcadores.
+   */
+  const { terminadas, actual } = useMemo(() => {
+    const cerradas = new Set(porraPhases.filter(estaCerrada).map(p => p.phase_id));
+    const terminadas = new Set<string>();
+    let actual = fasesVisibles[0]?.phase_id ?? '';
+    for (const p of fasesVisibles) {
+      const ms = delAmbito.filter(m => m.phase_id === p.phase_id);
+      if (ms.every(m => m.home_score != null || m.status === 'postponed')) terminadas.add(p.phase_id);
+      if (cerradas.has(p.phase_id)) actual = p.phase_id;
+    }
+    return { terminadas, actual };
+  }, [fasesVisibles, delAmbito, porraPhases]);
+
+  // Al entrar, o si al cambiar el ámbito la fase activa se queda fuera
   useEffect(() => {
     if (!fasesVisibles.length) return;
-    if (!fasesVisibles.some(p => p.phase_id === activePhase)) {
-      setActivePhase(fasesVisibles[0].phase_id);
-    }
-  }, [fasesVisibles, activePhase]);
+    if (!fasesVisibles.some(p => p.phase_id === activePhase)) setActivePhase(actual);
+  }, [fasesVisibles, activePhase, actual]);
 
   const dePhase = delAmbito.filter(m => m.phase_id === activePhase);
 
@@ -168,14 +187,18 @@ export default function AdminResultados({ torneoId, porraMatchIds, onUpdated }: 
       <div className="flex gap-2 overflow-x-auto -mx-4 px-4 pb-1">
         {fasesVisibles.map(p => {
           const activa = activePhase === p.phase_id;
+          const terminada = terminadas.has(p.phase_id);
           return (
             <button
               key={p.phase_id}
               ref={activa ? (el) => el?.scrollIntoView({ block: 'nearest', inline: 'center' }) : undefined}
               onClick={() => setActivePhase(p.phase_id)}
-              className={`phase-pill shrink-0 ${activa ? 'active' : ''}`}
+              className={`phase-pill shrink-0
+                ${activa ? 'active' : ''}
+                ${!activa && p.phase_id === actual ? 'current' : ''}
+                ${!activa && terminada ? 'done' : ''}`}
             >
-              {p.short_name}
+              {terminada ? '✓ ' : ''}{p.short_name}
             </button>
           );
         })}

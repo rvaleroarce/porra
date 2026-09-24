@@ -198,6 +198,7 @@ export default function Admin() {
                   <AdminResultados
                     torneoId={activePorra.torneo_id}
                     porraMatchIds={boot?.matches.map(m => m.match_id) ?? []}
+                    porraPhases={boot?.phases ?? []}
                     onUpdated={refresh}
                   />
                 )}

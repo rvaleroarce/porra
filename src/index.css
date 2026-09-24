@@ -93,6 +93,12 @@
   .phase-pill.active {
     @apply bg-accent border-accent text-white;
   }
+  .phase-pill.current {
+    @apply border-accent text-accent;
+  }
+  .phase-pill.done {
+    @apply opacity-60;
+  }
   .phase-pill.locked {
     @apply opacity-50 cursor-default;
   }
